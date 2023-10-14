@@ -1,41 +1,42 @@
 # Accent Chess
 
-In this project we want to bring old chess computers back to live. It will do this by having a UCI interface to emulators of old chess computers. this way you can play against the old chess computers with modern chess engines.
+We want to bring old chess computers back to life in this project. It will do this by having a UCI interface to emulators of old chess computers. This way, you can play against the old chess computers with modern chess engines.
 
 ## architecture
 
-the architecture consists of two major parts. first we have clases that know how to work with the emulators. and secondly with have a UCI interface. and the special sauce is that we have a class that knows how to connect the two.
+The architecture consists of two major parts. First, we have classes that know how to work with the emulators. Secondly, with a UCI interface. And the special sauce is that we have a class that knows how to connect the two.
 
 ### Emulator classes
 
-the important parts here is that these classes need to know the following things:
+The important part here is that these classes need to know the following things:
 
 - how to start the emulator
 - how to get into the game
 - what the current game state is
 - how to make a move
-- how to create a arbitrary game state
+- how to create an arbitrary game state
 
-and it also needs to know which of the UCI commands it can handle. there are some engines that cannot start from a arbitrary game state.
+And it also needs to know which UCI commands it can handle. Some engines cannot start from an arbitrary game state.
 
 ### UCI interface
 
-the UCI interface will handel the communication with the outside world. it will parse the commands and send them to the correct emulator. it will also need to know how to handle the responses from the emulators.
+The UCI interface will handle the communication with the outside world. It will parse the commands and send them to the correct emulator. It will also need to know how to handle the responses from the emulators.
 
-the UCI interface needs to soften the edges of the emulators. It can talk to the emulator classes to get things done. but it also needs to know what counts as thinking time and what counts as setup time. It can take some time to setup a game state. and it can take some time to make a move. but the UCI interface needs to know what is what.
+The UCI interface needs to soften the edges of the emulators. It can talk to the emulator classes to get things done. But it also needs to know what counts as thinking time and what counts as setup time. It can take some time to set up a game state. And it can take some time to make a move. But the UCI interface needs to know what is what.
 
 ## TODO
 
-- [] create the UCI interface
+- [] Create the UCI interface
   - [] understand the UCI protocol
-  - [] create a UCI parser
+  - [] Create a UCI parser
   - [] create a base class for the emulators that can handle the UCI protocol
-  - [] create IO interface for the UCI interface
+  - [] Create an IO interface for the UCI interface
 - [] emulators
   - [] create a framework for setting up emulators
     - [] the internet archive equality
-    - [] dosbox
+    - [] DOSBox
     - [] gameboy emulator
+    - [] mame
   - [] create a prototype for one game
   - [] create utilities
     - [] image chessboard reader
@@ -45,7 +46,7 @@ the UCI interface needs to soften the edges of the emulators. It can talk to the
 ## Potential games
 
 - Battle Chess
-- Chessmaster 3000 (and the other chessmaster games)
+- Chessmaster 3000 (and the other Chessmaster games)
 - 1K ZX Chess
 - Bobby Fischer Teaches Chess
 - Chess 7.0
@@ -84,12 +85,12 @@ the UCI interface needs to soften the edges of the emulators. It can talk to the
 - Wii Chess
 - Zillions of Games
 
-and while this is an impressive list of games. it is currently just a list of games. and we need to figure out which of these games we can actually emulate. and which of these games we can actually play against.
+And while this is an impressive list of games. It is currently just a list of games. And we need to figure out which games we can emulate. And which of these games we can actually play against?
 
 ## Thoughts
 
-to make this project a success it needs to be able to be accessed in a easy way. controlling with UCI is the most straight forward way to do this.
+To make this project a success, it needs to be accessed easily. Controlling with UCI is the most straightforward way to do this.
 
-the thing with the uci protocol is that it is that the game state is very fragile and that UCI can ask a engine to start from any game state.
+The thing with the UCI protocol is that it is that the game state is very fragile and that UCI can ask an engine to start from any game state.
 
-so to make sure that we can accommodate we need to make a more narrow implementation of the UCI protocol. and just error out when we cant handle the request.
+To ensure that we can accommodate, we need to make a more narrow implementation of the UCI protocol. And just error out when we can't handle the request.
