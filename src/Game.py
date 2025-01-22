@@ -1,9 +1,13 @@
-# virtual base class for the different games
-# has a get_state method to return the state of the game
-# a make_move method to make a move
-# every game has a name and a year
+# Virtual base class for different game implementations.
+# Provides:
+# - get_state(): returns the current state of the game
+# - make_move(): executes a move
+# Each game instance has a name, year, and author.
 
 class Game():
+    # there should also be a part "documentation" in the code
+    # Like where to find the game, and links to images of the game
+
     def __init__(self, name, year):
         self.name = name
         self.year = year
@@ -18,6 +22,5 @@ class Game():
     def isThinking(self):
         return False
     
-    # the game class is also in charge of implementing the UCI protocol
+    # This class is responsible for implementing the UCI protocol
 
-    

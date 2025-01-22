@@ -16,7 +16,7 @@ ImageGrab.grab = partial(ImageGrab.grab, all_screens=True)
 from Game import Game
 from utils.nameToType import nameToPiece, nameToColor
 
-# resize, grayscale, normalize, and flatten image
+# Resize, grayscale, normalize, and flatten image
 def prepare(img: Image):
     img = img.resize((64, 48))
     img = np.array(img)
@@ -34,14 +34,14 @@ def prepare(img: Image):
 
 class GrandmasterChess(Game):
 
-    # url: https://archive.org/details/msdos_Grandmaster_Chess_1993
+    # URL: https://archive.org/details/msdos_Grandmaster_Chess_1993
 
     def __init__(self):
         super().__init__("Grandmaster Chess", "1993")
 
         self.squareSize = (59, 55)
 
-        # load the classifier
+        # Load the classifier
         images = []
         labels = []
 
@@ -55,14 +55,14 @@ class GrandmasterChess(Game):
 
         self.classifier.fit(images, labels)
 
-        # get the base of the game
+        # Get the base of the game
         referencePath = pathlib.Path(__file__).parent.resolve()
         base = pyautogui.locateOnScreen(str(referencePath) + '/reference.png')
 
         if base is None:
-            raise Exception("Could not find reference image")
+            raise Exception("Could not find the reference image")
 
-        # adjust base to capture the board
+        # Adjust base to capture the board
         self.board = (
             base[0] -491,  # left
             base[1] -380,  # top
@@ -71,8 +71,7 @@ class GrandmasterChess(Game):
         )
 
     def get_state(self) -> Board:
-
-        # take a screenshot of the board
+        # Take a screenshot of the board
         screenshot = pyautogui.screenshot(
             region=self.board
         )
@@ -80,7 +79,7 @@ class GrandmasterChess(Game):
         # path = pathlib.Path(__file__).parent.resolve() / 'main.png'
         # screenshot = Image.open(path)
 
-        # find the pieces
+        # Find the pieces
 
         board = Board()
         for x in range(0, 8):
@@ -92,11 +91,11 @@ class GrandmasterChess(Game):
                     (y + 1) * self.squareSize[1]
                 ))
 
-                # get the piece on the square
+                # Get the piece on the square
                 piece = self.getPiece(squareImage)
                 color = self.getColor(squareImage)
 
-                # # add the piece to the board
+                # # Add the piece to the board
                 coordinate = ["a", "b", "c", "d", "e",
                               "f", "g", "h"][x] + str(7 - y + 1)
 
@@ -108,7 +107,7 @@ class GrandmasterChess(Game):
     def getPiece(self, square: Image) -> PIECE_TYPES:
         pieceName = self.classifier.predict([prepare(square)])
 
-        # make directory if it doesn't exist
+        # Make directory if it doesn't exist
         path = pathlib.Path(pathlib.Path(
             __file__).parent.resolve() / "squares/" / str(pieceName[0]))
         path.mkdir(parents=True, exist_ok=True)
@@ -118,14 +117,14 @@ class GrandmasterChess(Game):
             return None
         return nameToPiece(pieceName[0])
 
-    # get the color of the piece
+    # Get the color of the piece
     def getColor(self, square: Image) -> COLORS:
         white = [255,255,255]
         black = [93, 85, 81]
 
         image = np.array(square)
 
-        # find the most common color not including white and black
+        # Find the most common color not including white and black
         colors = np.unique(image.reshape(-1, image.shape[-1]), axis=0)
         colors = colors[~np.all(colors == white, axis=1)]
         colors = colors[~np.all(colors == black, axis=1)]
@@ -141,21 +140,20 @@ class GrandmasterChess(Game):
     def make_move(self, move: Move):
         originalMousePosition = pyautogui.position()
 
-        pyautogui.moveTo(0, 0)
-        # move the mouse the with of the screen
+        # Move the mouse to the width of the screen
         screenWidth, _ = pyautogui.size()
         pyautogui.moveRel(screenWidth, 0)
 
-        # move the mouse on the board
+        # Move the mouse on the board
         pyautogui.moveRel(
             self.board[0] - screenWidth + 150,  # left
             self.board[1] + 40,  # top
         )
 
-        # click to capture the mouse
+        # Click to capture the mouse
         pyautogui.click()
 
-        # make the move
+        # Make the move
         # pyautogui.typewrite("d2d4", interval=0.5)
         text = move.uci()
 
@@ -167,15 +165,15 @@ class GrandmasterChess(Game):
         pyautogui.keyUp('enter')
 
 
-        # press escape to un capture the mouse
+        # Press escape to uncapture the mouse
         pyautogui.press('esc')
 
-        # move mouse back to original position
+        # Move mouse back to the original position
         pyautogui.moveTo(originalMousePosition)
 
     def isThinking(self) -> bool:
-        # check if the game is thinking
-        # by checking if the time is blinking
+        # Check if the game is thinking
+        # by checking if the timer is blinking
 
         timerRegion = (
                 self.board[0] + 520,  # left
@@ -184,24 +182,24 @@ class GrandmasterChess(Game):
                 34  # height
             )
 
-        # take a screenshot of the board
+        # Take a screenshot of the board
         screenshot = pyautogui.screenshot(
             region=timerRegion
         )
 
         screenshot.save('timer.png')
 
-        # sleep for 1.5 seconds
+        # Sleep for 1.5 seconds
         time.sleep(1.5)
 
-        # take another screenshot
+        # Take another screenshot
         screenshot2 = pyautogui.screenshot(
             region=timerRegion
         )
 
-        # compare the two screenshots
+        # Compare the two screenshots
         diff = cv.absdiff(np.array(screenshot), np.array(screenshot2))
 
-        # if the difference is greater than 10
+        # If the difference is greater than 10
         # the timer is blinking
         return not (np.sum(diff) > 10)
