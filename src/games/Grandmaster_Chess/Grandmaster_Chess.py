@@ -5,9 +5,7 @@ Connector for the Grandmaster Chess 1993 DOS game emulator.
 URL: https://archive.org/details/msdos_Grandmaster_Chess_1993
 """
 
-from functools import partial
 from typing import Optional
-from PIL import ImageGrab
 from sklearn.ensemble import GradientBoostingClassifier
 from chess import Board, Piece, PieceType, Color, WHITE, BLACK, parse_square, Move
 import cv2 as cv
@@ -17,10 +15,7 @@ import pathlib
 import time
 import logging
 from hashlib import sha256
-
-import pyautogui
-pyautogui.FAILSAFE = False
-ImageGrab.grab = partial(ImageGrab.grab, all_screens=True)
+import io
 
 import sys
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent.resolve()))
@@ -59,7 +54,11 @@ def prepare(img: Image.Image) -> np.ndarray:
 class GrandmasterChessConnector(GameConnector):
     """
     Game connector for Grandmaster Chess 1993 DOS game.
+    Uses Playwright to control the archive.org DOS emulator.
     """
+
+    # Archive.org URL for the emulator
+    ARCHIVE_ORG_URL = "https://archive.org/details/msdos_Grandmaster_Chess_1993"
 
     def __init__(self) -> None:
         super().__init__(
@@ -72,6 +71,14 @@ class GrandmasterChessConnector(GameConnector):
         self.classifier: Optional[GradientBoostingClassifier] = None
         self.board_region: Optional[tuple[int, int, int, int]] = None
         self._initialized = False
+        
+        # Canvas element coordinates (relative to the iframe/canvas)
+        self._canvas_offset: tuple[int, int] = (0, 0)
+    
+    @property
+    def archive_org_url(self) -> str:
+        """The archive.org URL for Grandmaster Chess 1993."""
+        return self.ARCHIVE_ORG_URL
     
     def _load_classifier(self) -> None:
         """Load the piece classifier from training images."""
@@ -101,57 +108,111 @@ class GrandmasterChessConnector(GameConnector):
         )
         self.classifier.fit(images, labels)
     
-    def _find_game_window(self) -> bool:
+    def _wait_for_emulator_ready(self, timeout: float = 60.0) -> bool:
         """
-        Find the game window on screen.
+        Wait for the archive.org emulator to be ready.
         
+        Args:
+            timeout: Maximum time to wait in seconds
+            
         Returns:
-            True if the game window was found
+            True if emulator is ready
         """
-        reference_path = pathlib.Path(__file__).parent.resolve()
-        base = pyautogui.locateOnScreen(str(reference_path) + '/reference.png')
-        
-        if base is None:
-            logging.warning("Could not find Grandmaster Chess reference image")
+        if not self._page:
             return False
+
+        try:
+            # The emulator canvas may be nested inside iframes on archive.org.
+            if not self.wait_for_emulator_canvas(timeout=timeout):
+                logging.error("Emulator not ready: canvas not found")
+                return False
+
+            # Click on the emulator to start it if needed (archive.org often requires a click to start).
+            # Prefer Playwright-native waiting rather than fixed sleeps.
+            canvas = self.get_emulator_canvas()
+            if canvas.is_visible():
+                canvas.click()
+                self._page.wait_for_timeout(1500)
+
+            return True
+        except Exception as e:
+            logging.error(f"Emulator not ready: {e}")
+            return False
+    
+    def _get_canvas_bounds(self) -> Optional[dict]:
+        """Get the bounding box of the emulator canvas."""
+        if not self._page:
+            return None
         
-        # Adjust base to capture the board (convert to int for pyautogui.screenshot)
-        self.board_region = (
-            int(base[0] - 491),  # left
-            int(base[1] - 380),  # top
-            472,                  # width
-            440                   # height
-        )
-        return True
+        try:
+            canvas = self.get_emulator_canvas()
+            return canvas.bounding_box()
+        except Exception:
+            return None
+    
+    def _take_board_screenshot(self) -> Optional[Image.Image]:
+        """Take a screenshot of the game board area."""
+        if not self._page:
+            return None
+        
+        canvas_bounds = self._get_canvas_bounds()
+        if not canvas_bounds:
+            return None
+        
+        # Take screenshot of the canvas area
+        screenshot_bytes = self.get_emulator_canvas().screenshot()
+        screenshot = Image.open(io.BytesIO(screenshot_bytes))
+        
+        # Crop to the board region if known
+        if self.board_region:
+            x, y, w, h = self.board_region
+            screenshot = screenshot.crop((x, y, x + w, y + h))
+        
+        return screenshot
     
     # =========================================================================
     # GameConnector Implementation
     # =========================================================================
     
     def initialize(self) -> bool:
-        """Initialize the connector and find the emulator."""
+        """Initialize the connector, launch browser, and find the emulator."""
         try:
             self._load_classifier()
-            if self._find_game_window():
-                self._initialized = True
-                return True
-            return False
+            
+            # Launch browser and navigate to archive.org
+            if not self.launch_browser(headless=False):
+                return False
+            
+            # Wait for the emulator to be ready
+            if not self._wait_for_emulator_ready():
+                return False
+            
+            # Set default board region (may need calibration for specific setup)
+            # These values are approximate and may need adjustment
+            self.board_region = (17, 60, 472, 440)
+            
+            self._initialized = True
+            return True
         except Exception as e:
             logging.error(f"Failed to initialize Grandmaster Chess: {e}")
             return False
     
     def is_emulator_ready(self) -> bool:
         """Check if the emulator is found and ready."""
-        if not self._initialized:
+        if not self._initialized or not self._page:
             return False
-        return self._find_game_window()
+        
+        try:
+            canvas = self._page.locator("canvas")
+            return canvas.is_visible()
+        except Exception:
+            return False
     
     def get_board_state(self) -> Board:
         """Read and return the current board state from the emulator."""
-        if not self.board_region:
-            raise RuntimeError("Connector not initialized")
-        
-        screenshot = pyautogui.screenshot(region=self.board_region)
+        screenshot = self._take_board_screenshot()
+        if screenshot is None:
+            raise RuntimeError("Could not capture board screenshot")
         
         # Important: start from an empty board. Using Board() would include the
         # standard starting position and create "phantom" pieces when we set
@@ -179,11 +240,7 @@ class GrandmasterChessConnector(GameConnector):
     def setup_new_game(self) -> bool:
         """Set up a new game in the emulator."""
         # For now, assume the game is already set up
-
-        # Click on the game to enter its focus
-        # click and hold on (-70 -135) the file menu
-        # drag down to (-23 -200) and release
-        
+        # TODO: Implement menu navigation to start new game via Playwright clicks
         return True
     
     def setup_position(self, board: Board) -> bool:
@@ -195,38 +252,36 @@ class GrandmasterChessConnector(GameConnector):
     
     def execute_move(self, move: Move) -> bool:
         """Execute a move on the emulator."""
-        if not self.board_region:
+        if not self._page:
             return False
         
-        original_pos = pyautogui.position()
+        canvas_bounds = self._get_canvas_bounds()
+        if not canvas_bounds:
+            return False
         
-        screen_width, _ = pyautogui.size()
-        pyautogui.moveRel(screen_width, 0)
+        # Click on the canvas to ensure focus
+        canvas_x = canvas_bounds["x"]
+        canvas_y = canvas_bounds["y"]
         
-        pyautogui.moveRel(
-            self.board_region[0] - screen_width + 150,
-            self.board_region[1] + 40,
-        )
+        # Click in the input area (relative to board position)
+        if self.board_region:
+            input_x = canvas_x + self.board_region[0] + 150
+            input_y = canvas_y + self.board_region[1] + 40
+            self._page.mouse.click(input_x, input_y)
+            self._page.wait_for_timeout(200)
         
-        pyautogui.click()
-        time.sleep(0.2)  # Wait for click to register
-        
+        # Type the move in UCI notation
         text = move.uci()
         logging.debug(f"Typing move: {text}")
-        for char in text:
-            pyautogui.keyDown(char)
-            pyautogui.keyUp(char)
-            time.sleep(0.05)  # Small delay between key presses
+        self.type_text(text, delay=50)
         
-        time.sleep(0.1)
-        pyautogui.keyDown('enter')
-        pyautogui.keyUp('enter')
+        self._page.wait_for_timeout(100)
+        self.press_key("Enter")
         
         # Wait for the move to be processed before pressing ESC
-        time.sleep(0.5)
+        self._page.wait_for_timeout(500)
         
-        pyautogui.press('esc')
-        pyautogui.moveTo(original_pos)
+        self.press_key("Escape")
         
         return True
     
@@ -261,7 +316,10 @@ class GrandmasterChessConnector(GameConnector):
                 else:
                     # Reset if we see a different state
                     stable_samples = 0
-                time.sleep(0.2)
+                if self._page is not None:
+                    self._page.wait_for_timeout(200)
+                else:
+                    time.sleep(0.2)
             else:
                 logging.warning("Screen didn't stably match expected state, proceeding anyway")
         
@@ -278,7 +336,10 @@ class GrandmasterChessConnector(GameConnector):
         last_fen = None
         
         while time.time() - start_time < timeout:
-            time.sleep(0.5)
+            if self._page is not None:
+                self._page.wait_for_timeout(500)
+            else:
+                time.sleep(0.5)
             
             current = self.get_board_state()
             current_fen = current.fen().split()[0]
@@ -313,25 +374,47 @@ class GrandmasterChessConnector(GameConnector):
         return None
     
     def is_engine_thinking(self) -> bool:
-        """Check if the emulator's engine is currently calculating."""
-        if not self.board_region:
+        """Check if the emulator's engine is currently calculating.
+        
+        Compares two screenshots of the timer region to detect animation/changes.
+        """
+        if not self._page or not self.board_region:
             return False
         
-        timer_region = (
-            self.board_region[0] + 520,
-            self.board_region[1] + 120,
-            120,
-            34
-        )
-        
-        screenshot1 = pyautogui.screenshot(region=timer_region)
-        time.sleep(1.5)
-        screenshot2 = pyautogui.screenshot(region=timer_region)
-        
-        diff = cv.absdiff(np.array(screenshot1), np.array(screenshot2))
-        
-        # If timer is blinking, engine is thinking
-        return not (np.sum(diff) > 10)
+        try:
+            # Timer region coordinates (relative to canvas)
+            timer_x = self.board_region[0] + 520
+            timer_y = self.board_region[1] + 120
+            timer_width = 120
+            timer_height = 34
+            
+            canvas = self.get_emulator_canvas()
+            
+            # Take two screenshots with a delay
+            screenshot1_bytes = canvas.screenshot(clip={
+                "x": timer_x,
+                "y": timer_y,
+                "width": timer_width,
+                "height": timer_height
+            })
+            self._page.wait_for_timeout(1500)
+            screenshot2_bytes = canvas.screenshot(clip={
+                "x": timer_x,
+                "y": timer_y,
+                "width": timer_width,
+                "height": timer_height
+            })
+            
+            screenshot1 = np.array(Image.open(io.BytesIO(screenshot1_bytes)))
+            screenshot2 = np.array(Image.open(io.BytesIO(screenshot2_bytes)))
+            
+            diff = cv.absdiff(screenshot1, screenshot2)
+            
+            # If timer is blinking/changing, engine is thinking
+            return not (np.sum(diff) > 10)
+        except Exception as e:
+            logging.error(f"Error checking engine thinking: {e}")
+            return False
     
     def stop_calculation(self) -> bool:
         """Stop any ongoing calculation in the emulator."""
@@ -339,9 +422,10 @@ class GrandmasterChessConnector(GameConnector):
         return False
     
     def shutdown(self) -> None:
-        """Gracefully shut down the emulator connection."""
+        """Gracefully shut down the emulator connection and browser."""
         self._initialized = False
         self.board_region = None
+        self.close_browser()
     
     # =========================================================================
     # Helper Methods

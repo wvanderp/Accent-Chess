@@ -45,15 +45,15 @@ The UCI interface needs to soften the edges of the emulators. It can talk to the
 
 ## Potential Games
 
+- 1K ZX Chess (<https://archive.org/details/doshaven_bootchess>)
 - Battle Chess
-- Chessmaster 3000 (and the other Chessmaster games)
-- 1K ZX Chess
-- Bobby Fischer Teaches Chess
+- Bobby Fischer Teaches Chess (<https://archive.org/details/msdos_Bobby_Fischer_Teaches_Chess_1994>)
 - Chess 7.0
 - Chess Champion 2175
 - Chess Simulator
 - Chess Titans
 - Chess Wars
+- Chessmaster 3000 (and the other Chessmaster games)
 - Colossus Chess
 - Combat Chess
 - Cyber Chess
@@ -67,11 +67,12 @@ The UCI interface needs to soften the edges of the emulators. It can talk to the
 - Mac Hack
 - MChess Pro
 - Microchess
+- Nova Chess (<https://archive.org/details/NovaChessV1.121996ThomasStarkeStrategyChess>)
 - Paul Whitehead Teaches Chess
 - Pocket Fritz
 - Power Chess
 - Sargon
-- Sargon II
+- Sargon II (<https://archive.org/details/d64_Sargon_II_1983_Hayden_Software>)
 - Sega Chess
 - Silver Star Chess
 - Socrates II

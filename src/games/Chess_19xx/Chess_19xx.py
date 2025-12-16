@@ -5,9 +5,7 @@ Connector for the Chess 19xx DOS game emulator.
 URL: https://archive.org/details/Chess_19xx_-
 """
 
-from functools import partial
 from typing import Optional
-from PIL import ImageGrab
 from sklearn.ensemble import GradientBoostingClassifier
 from chess import Board, Piece, PieceType, Color, WHITE, BLACK, parse_square, Move
 import cv2 as cv
@@ -16,10 +14,7 @@ from PIL import Image
 import pathlib
 import time
 import logging
-
-import pyautogui
-pyautogui.FAILSAFE = False
-ImageGrab.grab = partial(ImageGrab.grab, all_screens=True)
+import io
 
 import sys
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent.resolve()))
@@ -49,6 +44,7 @@ def prepare(img: Image.Image) -> np.ndarray:
 class Chess19xxConnector(GameConnector):
     """
     Game connector for Chess 19xx DOS game.
+    Uses Playwright to control the archive.org DOS emulator.
     
     On-screen translations (Swedish -> English):
     - tid -> time
@@ -64,6 +60,9 @@ class Chess19xxConnector(GameConnector):
     - F7: change background
     """
 
+    # Archive.org URL for the emulator
+    ARCHIVE_ORG_URL = "https://archive.org/details/Chess_19xx_-"
+
     def __init__(self) -> None:
         super().__init__(
             name="Chess 19xx",
@@ -75,6 +74,14 @@ class Chess19xxConnector(GameConnector):
         self.classifier: Optional[GradientBoostingClassifier] = None
         self.board_region: Optional[tuple[int, int, int, int]] = None
         self._initialized = False
+        
+        # Canvas element coordinates (relative to the iframe/canvas)
+        self._canvas_offset: tuple[int, int] = (0, 0)
+    
+    @property
+    def archive_org_url(self) -> str:
+        """The archive.org URL for Chess 19xx."""
+        return self.ARCHIVE_ORG_URL
     
     def _load_classifier(self) -> None:
         """Load the piece classifier from training images."""
@@ -83,8 +90,16 @@ class Chess19xxConnector(GameConnector):
         
         squares = pathlib.Path(__file__).parent.resolve() / "squares"
         for example in squares.glob("**/*.png"):
-            images.append(prepare(Image.open(example)))
-            labels.append(example.parent.name)
+            try:
+                with Image.open(example) as img:
+                    images.append(prepare(img))
+                labels.append(example.parent.name)
+            except Exception as e:
+                logging.warning(f"Skipping unreadable training image {example}: {e}")
+                continue
+        
+        if not images:
+            raise RuntimeError(f"No readable training images found in {squares}")
         
         self.classifier = GradientBoostingClassifier(
             n_estimators=100,
@@ -94,59 +109,110 @@ class Chess19xxConnector(GameConnector):
         )
         self.classifier.fit(images, labels)
     
-    def _find_game_window(self) -> bool:
+    def _wait_for_emulator_ready(self, timeout: float = 60.0) -> bool:
         """
-        Find the game window on screen.
+        Wait for the archive.org emulator to be ready.
         
+        Args:
+            timeout: Maximum time to wait in seconds
+            
         Returns:
-            True if the game window was found
+            True if emulator is ready
         """
-        reference_path = pathlib.Path(__file__).parent.resolve()
-        base = pyautogui.locateOnScreen(str(reference_path) + '/reference.png')
-        
-        if base is None:
-            logging.warning("Could not find Chess 19xx reference image")
+        if not self._page:
             return False
         
-        # Adjust base to capture the board
-        self.board_region = (
-            base[0] + 35,   # left
-            base[1] + 3,    # top
-            514,            # width
-            385             # height
-        )
-        return True
+        try:
+            # Wait for the canvas element to be visible (the DOS emulator renders to canvas)
+            self._page.wait_for_selector("canvas", timeout=timeout * 1000)
+            
+            # Click on the emulator to start it if needed
+            canvas = self._page.locator("canvas")
+            if canvas.is_visible():
+                canvas.click()
+                time.sleep(2)  # Give emulator time to initialize
+            
+            return True
+        except Exception as e:
+            logging.error(f"Emulator not ready: {e}")
+            return False
+    
+    def _get_canvas_bounds(self) -> Optional[dict]:
+        """Get the bounding box of the emulator canvas."""
+        if not self._page:
+            return None
+        
+        try:
+            canvas = self._page.locator("canvas")
+            return canvas.bounding_box()
+        except Exception:
+            return None
+    
+    def _take_board_screenshot(self) -> Optional[Image.Image]:
+        """Take a screenshot of the game board area."""
+        if not self._page:
+            return None
+        
+        canvas_bounds = self._get_canvas_bounds()
+        if not canvas_bounds:
+            return None
+        
+        # Take screenshot of the canvas area
+        screenshot_bytes = self._page.locator("canvas").screenshot()
+        screenshot = Image.open(io.BytesIO(screenshot_bytes))
+        
+        # Crop to the board region if known
+        if self.board_region:
+            x, y, w, h = self.board_region
+            screenshot = screenshot.crop((x, y, x + w, y + h))
+        
+        return screenshot
     
     # =========================================================================
     # GameConnector Implementation
     # =========================================================================
     
     def initialize(self) -> bool:
-        """Initialize the connector and find the emulator."""
+        """Initialize the connector, launch browser, and find the emulator."""
         try:
             self._load_classifier()
-            if self._find_game_window():
-                self._initialized = True
-                return True
-            return False
+            
+            # Launch browser and navigate to archive.org
+            if not self.launch_browser(headless=False):
+                return False
+            
+            # Wait for the emulator to be ready
+            if not self._wait_for_emulator_ready():
+                return False
+            
+            # Set default board region (may need calibration for specific setup)
+            # These values are approximate based on the original implementation
+            self.board_region = (35, 3, 514, 385)
+            
+            self._initialized = True
+            return True
         except Exception as e:
             logging.error(f"Failed to initialize Chess 19xx: {e}")
             return False
     
     def is_emulator_ready(self) -> bool:
         """Check if the emulator is found and ready."""
-        if not self._initialized:
+        if not self._initialized or not self._page:
             return False
-        return self._find_game_window()
+        
+        try:
+            canvas = self._page.locator("canvas")
+            return canvas.is_visible()
+        except Exception:
+            return False
     
     def get_board_state(self) -> Board:
         """Read and return the current board state from the emulator."""
-        if not self.board_region:
-            raise RuntimeError("Connector not initialized")
+        screenshot = self._take_board_screenshot()
+        if screenshot is None:
+            raise RuntimeError("Could not capture board screenshot")
         
-        screenshot = pyautogui.screenshot(region=self.board_region)
-        
-        board = Board()
+        board = Board(None)
         for x in range(8):
             for y in range(8):
                 square_image = screenshot.crop((
@@ -169,7 +235,7 @@ class Chess19xxConnector(GameConnector):
     def setup_new_game(self) -> bool:
         """Set up a new game in the emulator."""
         # For now, assume the game is already set up
-        # TODO: Implement menu navigation to start new game
+        # TODO: Implement menu navigation to start new game via Playwright
         return True
     
     def setup_position(self, board: Board) -> bool:
@@ -181,33 +247,30 @@ class Chess19xxConnector(GameConnector):
     
     def execute_move(self, move: Move) -> bool:
         """Execute a move on the emulator."""
-        if not self.board_region:
+        if not self._page:
             return False
         
-        original_pos = pyautogui.position()
+        canvas_bounds = self._get_canvas_bounds()
+        if not canvas_bounds:
+            return False
         
-        pyautogui.moveTo(0, 0)
+        # Click on the canvas to ensure focus
+        canvas_x = canvas_bounds["x"]
+        canvas_y = canvas_bounds["y"]
         
-        screen_width, _ = pyautogui.size()
-        pyautogui.moveRel(screen_width, 0)
+        # Click in the input area (relative to board position)
+        if self.board_region:
+            input_x = canvas_x + self.board_region[0] + 75
+            input_y = canvas_y + self.board_region[1]
+            self._page.mouse.click(input_x, input_y)
         
-        pyautogui.moveRel(
-            self.board_region[0] - screen_width + 75,
-            self.board_region[1],
-        )
-        
-        pyautogui.click()
-        
+        # Type the move in UCI notation
         text = move.uci()
-        for char in text:
-            pyautogui.keyDown(char)
-            pyautogui.keyUp(char)
+        self.type_text(text, delay=50)
         
-        pyautogui.keyDown('enter')
-        pyautogui.keyUp('enter')
+        self.press_key("Enter")
         
-        pyautogui.press('esc')
-        pyautogui.moveTo(original_pos)
+        self.press_key("Escape")
         
         return True
     
@@ -244,39 +307,85 @@ class Chess19xxConnector(GameConnector):
         
         pre_state = self.get_board_state()
         
-        # Wait for engine to finish thinking
-        while self.is_engine_thinking():
-            time.sleep(0.1)
+        # Poll for board changes - wait until the board looks different
+        timeout = 180.0
+        start_time = time.time()
+        pre_fen = pre_state.fen().split()[0]
+        stable_count = 0
+        last_fen = None
         
-        post_state = self.get_board_state()
+        while time.time() - start_time < timeout:
+            time.sleep(0.5)
+            
+            current = self.get_board_state()
+            current_fen = current.fen().split()[0]
+            
+            # Check if board changed from pre-state
+            if current_fen != pre_fen:
+                # Board changed! Now wait for it to stabilize
+                if current_fen == last_fen:
+                    stable_count += 1
+                    if stable_count >= 3:  # Stable for 1.5 seconds
+                        post_state = current
+                        
+                        try:
+                            move = moveFromFens(pre_state, post_state)
+                            return move
+                        except Exception as e:
+                            logging.error(f"Failed to detect engine move: {e}")
+                            return None
+                else:
+                    stable_count = 0
+                    last_fen = current_fen
+            else:
+                stable_count = 0
+                last_fen = current_fen
         
-        try:
-            move = moveFromFens(pre_state, post_state)
-            return move
-        except Exception as e:
-            logging.error(f"Failed to detect engine move: {e}")
-            return None
+        logging.warning("Timeout waiting for engine move")
+        return None
     
     def is_engine_thinking(self) -> bool:
-        """Check if the emulator's engine is currently calculating."""
-        if not self.board_region:
+        """Check if the emulator's engine is currently calculating.
+        
+        Compares two screenshots of the timer region to detect animation/changes.
+        """
+        if not self._page or not self.board_region:
             return False
         
-        timer_region = (
-            self.board_region[0] + 520,
-            self.board_region[1] + 120,
-            120,
-            34
-        )
-        
-        screenshot1 = pyautogui.screenshot(region=timer_region)
-        time.sleep(1.5)
-        screenshot2 = pyautogui.screenshot(region=timer_region)
-        
-        diff = cv.absdiff(np.array(screenshot1), np.array(screenshot2))
-        
-        # If timer is blinking, engine is thinking
-        return not (np.sum(diff) > 10)
+        try:
+            # Timer region coordinates (relative to canvas)
+            timer_x = self.board_region[0] + 520
+            timer_y = self.board_region[1] + 120
+            timer_width = 120
+            timer_height = 34
+            
+            canvas = self._page.locator("canvas")
+            
+            # Take two screenshots with a delay
+            screenshot1_bytes = canvas.screenshot(clip={
+                "x": timer_x,
+                "y": timer_y,
+                "width": timer_width,
+                "height": timer_height
+            })
+            time.sleep(1.5)
+            screenshot2_bytes = canvas.screenshot(clip={
+                "x": timer_x,
+                "y": timer_y,
+                "width": timer_width,
+                "height": timer_height
+            })
+            
+            screenshot1 = np.array(Image.open(io.BytesIO(screenshot1_bytes)))
+            screenshot2 = np.array(Image.open(io.BytesIO(screenshot2_bytes)))
+            
+            diff = cv.absdiff(screenshot1, screenshot2)
+            
+            # If timer is blinking/changing, engine is thinking
+            return not (np.sum(diff) > 10)
+        except Exception as e:
+            logging.error(f"Error checking engine thinking: {e}")
+            return False
     
     def stop_calculation(self) -> bool:
         """Stop any ongoing calculation in the emulator."""
@@ -284,9 +393,10 @@ class Chess19xxConnector(GameConnector):
         return False
     
     def shutdown(self) -> None:
-        """Gracefully shut down the emulator connection."""
+        """Gracefully shut down the emulator connection and browser."""
         self._initialized = False
         self.board_region = None
+        self.close_browser()
     
     # =========================================================================
     # Helper Methods

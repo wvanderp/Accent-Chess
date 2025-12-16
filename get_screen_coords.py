@@ -1,6 +1,6 @@
 # this file should
-# - accept a image a refrence
-# - when the mouse is moved print the absolute coordinates of the mouse to the image's top-left corner
+# - Accept a image a reference
+# - When the mouse is moved print the absolute coordinates of the mouse to the image's top-left corner
 
 import pyautogui
 import sys
@@ -23,10 +23,10 @@ def get_screen_coords(image_path: str) -> tuple[int, int]:
 
     old_x, old_y = -1, -1
 
-    posible_locations = pyautogui.locateOnScreen(image_path, confidence=0.9) or (0, 0)
+    possible_locations = pyautogui.locateOnScreen(image_path, confidence=0.9) or (0, 0)
 
-    if posible_locations:
-        image_x, image_y = posible_locations.left, posible_locations.top
+    if possible_locations:
+        image_x, image_y = possible_locations.left, possible_locations.top
         print(f"Image found on screen at: ({image_x}, {image_y})")
     else:
         raise Exception("Image not found on screen.")

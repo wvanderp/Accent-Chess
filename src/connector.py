@@ -9,6 +9,7 @@ and calls these methods appropriately.
 from abc import ABC, abstractmethod
 from typing import Optional
 from chess import Board, Move, STARTING_FEN, WHITE, BLACK, Color
+from playwright.sync_api import sync_playwright, Playwright, Browser, Page, BrowserContext, Frame, Locator
 
 from state import GameState
 
@@ -24,7 +25,7 @@ class GameConnector(ABC):
     - Move execution capabilities
     
     The connector acts as a bridge between the UCI protocol and a specific
-    chess game emulator.
+    chess game emulator running in archive.org via Playwright.
     """
     
     def __init__(self, name: str, author: str, year: str) -> None:
@@ -40,6 +41,16 @@ class GameConnector(ABC):
         self.author = author
         self.year = year
         self._engine_color: Color = WHITE
+        
+        # Playwright browser instances
+        self._playwright: Optional[Playwright] = None
+        self._browser: Optional[Browser] = None
+        self._context: Optional[BrowserContext] = None
+        self._page: Optional[Page] = None
+
+        # Cached emulator canvas locator. Some archive.org emulators render the
+        # DOS canvas inside nested iframes, so we resolve it dynamically.
+        self._emulator_canvas: Optional[Locator] = None
     
     @property
     def engine_color(self) -> Color:
@@ -50,6 +61,184 @@ class GameConnector(ABC):
     def engine_color(self, color: Color) -> None:
         """Set the color that the engine is playing as."""
         self._engine_color = color
+    
+    @property
+    @abstractmethod
+    def archive_org_url(self) -> str:
+        """
+        The archive.org URL for this vintage chess game's emulator.
+        
+        Returns:
+            The full URL to the archive.org page with the DOS emulator
+        """
+        pass
+    
+    @property
+    def page(self) -> Optional[Page]:
+        """Get the Playwright page instance."""
+        return self._page
+    
+    # =========================================================================
+    # Browser Management Methods
+    # =========================================================================
+    
+    def launch_browser(self, headless: bool = False) -> bool:
+        """
+        Launch a Playwright browser instance and navigate to the archive.org emulator.
+        
+        Args:
+            headless: Whether to run the browser in headless mode
+            
+        Returns:
+            True if browser was launched successfully
+        """
+        try:
+            self._playwright = sync_playwright().start()
+            self._browser = self._playwright.chromium.launch(headless=headless)
+            self._context = self._browser.new_context()
+            self._page = self._context.new_page()
+            self._page.goto(self.archive_org_url, wait_until="domcontentloaded")
+            self._emulator_canvas = None
+            return True
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to launch browser: {e}")
+            return False
+    
+    def close_browser(self) -> None:
+        """Close the Playwright browser and release resources."""
+        self._emulator_canvas = None
+        if self._page:
+            self._page.close()
+            self._page = None
+        if self._context:
+            self._context.close()
+            self._context = None
+        if self._browser:
+            self._browser.close()
+            self._browser = None
+        if self._playwright:
+            self._playwright.stop()
+            self._playwright = None
+
+    def get_emulator_canvas(self) -> Locator:
+        """Return a Locator for the emulator's canvas element.
+
+        Archive.org frequently embeds the emulator canvas inside an iframe.
+        This method searches the main page and all frames for a visible canvas
+        and caches the first match.
+        """
+        if self._emulator_canvas is not None:
+            return self._emulator_canvas
+        if not self._page:
+            raise RuntimeError("Browser not launched")
+
+        # Prefer a visible canvas on the top-level page.
+        page_canvas = self._page.locator("canvas")
+        try:
+            if page_canvas.count() > 0 and page_canvas.first.is_visible():
+                self._emulator_canvas = page_canvas.first
+                return self._emulator_canvas
+        except Exception:
+            # Fall back to scanning frames.
+            pass
+
+        for frame in self._page.frames:
+            try:
+                canvas = frame.locator("canvas")
+                if canvas.count() == 0:
+                    continue
+                if canvas.first.is_visible():
+                    self._emulator_canvas = canvas.first
+                    return self._emulator_canvas
+            except Exception:
+                continue
+
+        # Cache nothing; callers can retry after navigation.
+        raise RuntimeError("Could not locate emulator canvas (no visible <canvas> found)")
+
+    def wait_for_emulator_canvas(self, timeout: float = 60.0) -> bool:
+        """Wait until a visible emulator canvas can be located.
+
+        Returns:
+            True if found within the timeout, else False.
+        """
+        if not self._page:
+            return False
+
+        # Use Playwright-native waiting on the page, but also allow the canvas
+        # to be inside iframes by periodically attempting resolution.
+        deadline_ms = int(timeout * 1000)
+        step_ms = 250
+        waited_ms = 0
+        while waited_ms < deadline_ms:
+            try:
+                _ = self.get_emulator_canvas()
+                return True
+            except Exception:
+                pass
+
+            try:
+                self._page.wait_for_timeout(step_ms)
+            except Exception:
+                return False
+            waited_ms += step_ms
+
+        return False
+    
+    def take_screenshot(self, region: Optional[tuple[int, int, int, int]] = None) -> bytes:
+        """
+        Take a screenshot of the game board.
+        
+        Args:
+            region: Optional tuple of (x, y, width, height) to capture a specific region.
+                   If None, captures the full page.
+        
+        Returns:
+            Screenshot as bytes (PNG format)
+        """
+        if not self._page:
+            raise RuntimeError("Browser not launched")
+        
+        if region:
+            x, y, width, height = region
+            return self._page.screenshot(clip={"x": x, "y": y, "width": width, "height": height})
+        return self._page.screenshot()
+    
+    def click_at(self, x: int, y: int) -> None:
+        """
+        Click at specific coordinates on the page.
+        
+        Args:
+            x: X coordinate
+            y: Y coordinate
+        """
+        if not self._page:
+            raise RuntimeError("Browser not launched")
+        self._page.mouse.click(x, y)
+    
+    def press_key(self, key: str) -> None:
+        """
+        Press a keyboard key.
+        
+        Args:
+            key: Key to press (e.g., 'Enter', 'Escape', 'a', 'b', etc.)
+        """
+        if not self._page:
+            raise RuntimeError("Browser not launched")
+        self._page.keyboard.press(key)
+    
+    def type_text(self, text: str, delay: float = 50) -> None:
+        """
+        Type text character by character.
+        
+        Args:
+            text: Text to type
+            delay: Delay between key presses in milliseconds
+        """
+        if not self._page:
+            raise RuntimeError("Browser not launched")
+        self._page.keyboard.type(text, delay=delay)
     
     # =========================================================================
     # Initialization Methods

@@ -85,6 +85,11 @@ def setup_logging(log_file: Optional[str] = None, verbose: bool = False) -> None
         handlers=handlers
     )
 
+    # Pillow can emit extremely verbose debug logs when the root logger is DEBUG.
+    # Keep our game logs readable.
+    logging.getLogger("PIL").setLevel(logging.WARNING)
+    logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+
 
 def play_game(
     connector: GrandmasterChessConnector,
