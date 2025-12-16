@@ -5,9 +5,20 @@ nums = {1: "a", 2: "b", 3: "c", 4: "d", 5: "e", 6: "f", 7: "g", 8: "h"}
 
 
 def moveFromFens(before: Board, after: Board) -> Move:
-    # find the move made to get from board1 to board2
-    # get the difference between the two boards
-
+    """
+    Find the move made to get from board1 to board2.
+    
+    Args:
+        before: Board state before the move
+        after: Board state after the move
+        
+    Returns:
+        The Move that was made
+        
+    Raises:
+        Exception: If no valid move found or too many differences
+    """
+    # Get the difference between the two boards
     differences = []
 
     for square in range(64):
@@ -15,7 +26,10 @@ def moveFromFens(before: Board, after: Board) -> Move:
             differences.append(square)
 
     if len(differences) > 4:
-        raise "too many differences"
+        raise Exception("too many differences")
+    
+    if len(differences) < 2:
+        raise Exception(f"not enough differences ({len(differences)}), boards may be the same")
 
     possibleMoves = []
 
