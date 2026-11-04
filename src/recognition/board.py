@@ -28,6 +28,8 @@ class Profile:
     backgrounds: tuple[tuple[int, int, int], tuple[int, int, int]]
     color_reader: Callable[[Image.Image, np.ndarray], chess.Color]
     template_shift: int = 0
+    fill_scanlines: bool = False
+    extra_templates: tuple[tuple[Path, str, int], ...] = ()
 
 
 @dataclass
@@ -44,13 +46,20 @@ def square_box(region: tuple[int, int, int, int], file: int, row: int) -> tuple[
             round(x + (file + 1) * width / 8), round(y + (row + 1) * height / 8))
 
 
-def silhouette(square: Image.Image, background: tuple[int, int, int]) -> np.ndarray:
+def silhouette(square: Image.Image, background: tuple[int, int, int], fill_scanlines: bool = False) -> np.ndarray:
     pixels = np.asarray(square.convert("RGB"), dtype=np.int16)
     mask = np.max(np.abs(pixels - background), axis=2) > 55
     # VICE's GTK display resamples edges. Exclude the grid/border fringe.
     mask[:2] = mask[-2:] = False
     mask[:, :2] = mask[:, -2:] = False
     mask = np.asarray(Image.fromarray(mask).filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3)))
+    # Rasterized outlined sprites can have open diagonal seams after resampling.
+    # Fill each occupied scanline between its outer edges before hole filling.
+    mask = mask.copy()
+    for line in mask if fill_scanlines else ():
+        occupied = np.flatnonzero(line)
+        if occupied.size:
+            line[occupied[0]:occupied[-1] + 1] = True
     outside = np.zeros_like(mask)
     pending: deque[tuple[int, int]] = deque([(0, 0)])
     while pending:
@@ -77,8 +86,15 @@ class BoardReader:
                     square = reference.crop(square_box(profile.region, file, row))
                     piece = chess.Board().piece_at(chess.square(file, 7 - row))
                     assert piece is not None
-                    mask = silhouette(square, profile.backgrounds[(file + row) % 2])
+                    mask = silhouette(square, profile.backgrounds[(file + row) % 2], profile.fill_scanlines)
                     self.templates.append((piece.piece_type, mask))
+        for path, name, kind in profile.extra_templates:
+            position = chess.parse_square(name)
+            file, row = chess.square_file(position), 7 - chess.square_rank(position)
+            with Image.open(path) as reference:
+                square = reference.crop(square_box(profile.region, file, row))
+                mask = silhouette(square, profile.backgrounds[(file + row) % 2], profile.fill_scanlines)
+                self.templates.append((kind, mask))
         # GTK resamples C64 squares at fractional boundaries. Their silhouettes
         # can shift by 1-2 normalized pixels; without alignment a moved knight
         # on c6 was closer to the bishop template than to the knight template.
@@ -107,7 +123,7 @@ class BoardReader:
                 background_fraction = float(np.mean(np.max(np.abs(pixels - background), axis=2) < 30))
                 if background_fraction < 0.3:
                     raise RecognitionError(f"Board/background not visible at {chess.square_name(chess.square(file, 7-row))}")
-                mask = silhouette(square, background)
+                mask = silhouette(square, background, self.profile.fill_scanlines)
                 symbol = "."
                 score = 0.0
                 if np.mean(mask) > 0.025:
@@ -127,6 +143,9 @@ class BoardReader:
                 draw.rectangle(box, outline="#00aa00")
                 draw.text((box[0] + 2, box[1] + 2), f"{name}:{symbol}", fill="#ff0000", stroke_width=1, stroke_fill="white")
         if len(board.pieces(chess.KING, chess.WHITE)) != 1 or len(board.pieces(chess.KING, chess.BLACK)) != 1:
-            raise RecognitionError("Expected exactly one king of each color")
+            raise RecognitionError(
+                f"Expected exactly one king of each color; found "
+                f"white={len(board.pieces(chess.KING, chess.WHITE))}, "
+                f"black={len(board.pieces(chess.KING, chess.BLACK))}")
         x, y, width, height = self.profile.region
         return Observation(board.board_fen(), frame.crop((x, y, x + width, y + height)), overlay, details)

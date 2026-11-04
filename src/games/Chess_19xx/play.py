@@ -107,3 +107,13 @@ class Connector:
         self.confirmations = self.unchanged = self.retries = 0
         self.observed = None
         self.awaiting_character = name != "Return"
+
+    def clock_samples(self, frame: Image.Image) -> tuple[bytes, bytes]:
+        """Isolate white/black clock digits, excluding names and move text.
+
+        A changing crop on an unchanged confirmed board establishes the active
+        side without a reset or assuming an engine search duration.
+        """
+        boxes = ((423, 201, 477, 212), (423, 185, 477, 196))
+        return (frame.convert("RGB").crop(boxes[0]).tobytes(),
+                frame.convert("RGB").crop(boxes[1]).tobytes())

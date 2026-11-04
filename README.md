@@ -25,6 +25,16 @@ For Grandmaster, keep the default **Computer plays BLACK** mode and the default
 the drawn board handles this automatically.
 See [local play architecture and findings](docs/local-play.md).
 
+For Stockfish advice, use **Analyze position** when the panel confirms your turn.
+The panel displays the best move and evaluation and highlights its source and
+destination. **Play best move** sends that move through the normal play session.
+Stockfish must be installed separately: use `stockfish` on PATH, select its
+executable with **Browse…**, or launch with `--stockfish C:\path\to\stockfish.exe`.
+Set **Seconds** to control thinking time (0.1–60 seconds; default 1).
+The panel remembers a verified Stockfish location for the next launch. A green
+**✓** beside Browse means the engine passed its UCI initialization and readiness
+checks; a red **✗** shows a problem, with details below the progress log.
+
 The architecture consists of two major parts. First, we have classes that know how to work with the emulators. Second, we have a UCI interface. The special sauce is the class that knows how to connect the two.
 
 ### Emulator Classes

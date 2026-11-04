@@ -62,6 +62,17 @@ class RuntimeTests(unittest.TestCase):
         self.thread.start()
         self.client = RuntimeClient(f"http://127.0.0.1:{self.server.server_port}")
 
+    def test_snapshot_identifies_running_game(self) -> None:
+        # The viewer can attach using container metadata without inspecting pixels.
+        self.server.shutdown()
+        self.thread.join()
+        self.server.server_close()
+        self.server = make_server(Session(self.backend, "chess19xx"), "127.0.0.1", 0)
+        self.thread = Thread(target=self.server.serve_forever)
+        self.thread.start()
+        self.client = RuntimeClient(f"http://127.0.0.1:{self.server.server_port}")
+        self.assertEqual(self.client.snapshot()["game"], "chess19xx")
+
     def tearDown(self) -> None:
         self.server.shutdown()
         self.server.server_close()

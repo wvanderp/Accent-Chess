@@ -59,9 +59,15 @@ class PlaySession:
         self.resetting = False
         self.deadline = 0.0
         self.ready = False
-        self.message = "Press New game to establish turn and move history"
+        self.position_confirmed = False
+        self.message = "Waiting for a confirmed board and an active clock"
+        self.clock_samples: tuple[bytes, bytes] | None = None
+        self.attach_placement: str | None = None
 
     def invalidate(self, reason: str) -> None:
+        self.position_confirmed = False
+        self.clock_samples = None
+        self.attach_placement = None
         self.board = None
         self.pending = None
         self.resetting = False
@@ -86,6 +92,7 @@ class PlaySession:
         if move not in self.board.legal_moves:
             raise ValueError(f"Illegal move: {uci}")
         self.ready = False
+        self.position_confirmed = False
         self.pending = self.board.copy()
         self.pending.push(move)
         self.deadline = monotonic() + 20
@@ -98,6 +105,7 @@ class PlaySession:
 
     def observe(self, frame: Image.Image, placement: str | None) -> None:
         self.ready = False
+        self.position_confirmed = False
         if self.deadline and monotonic() > self.deadline:
             self.invalidate("Emulator timed out; press New game to resynchronize")
             return
@@ -114,7 +122,30 @@ class PlaySession:
             else:
                 return
         if self.board is None:
-            return
+            reader = getattr(self.connector, "clock_samples", None)
+            if placement is None or reader is None:
+                self.clock_samples = None
+                self.attach_placement = None
+                return
+            samples = reader(frame)
+            previous = self.clock_samples
+            self.clock_samples = samples
+            if self.attach_placement != placement:
+                self.attach_placement = placement
+                return
+            if previous is None:
+                return
+            changed = [samples[index] != previous[index] for index in range(2)]
+            if sum(changed) != 1:
+                return
+            # Clock crops are ordered white, black. Never infer a turn from
+            # placement alone: most placements permit either side to move.
+            turn = chess.WHITE if changed[0] else chess.BLACK
+            candidate = chess.Board(f"{placement} {'w' if turn else 'b'} - - 0 1")
+            if not candidate.is_valid():
+                return
+            self.board = candidate
+            self.message = "Attached using active clock; historical special-move rights unknown"
         self.connector.advance(frame)
         if placement is None:
             return
@@ -138,6 +169,7 @@ class PlaySession:
                 return
             self.board = matches[0]
             self.deadline = 0.0
+        self.position_confirmed = True
         if self.board.is_game_over():
             self.deadline = 0.0
             self.message = f"Game over: {self.board.result()}"
@@ -151,4 +183,6 @@ class PlaySession:
     def state(self) -> dict[str, object]:
         return {"fen": self.board.fen() if self.board else None,
                 "ready": self.ready, "message": self.message,
+                "analyzable": self.position_confirmed,
+                "turn": chess.COLOR_NAMES[self.board.turn] if self.board and self.position_confirmed else None,
                 "resetting": self.resetting}

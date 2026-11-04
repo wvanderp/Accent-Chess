@@ -149,3 +149,17 @@ def test_debug_limit_and_rejected_frame_evidence(evidence_directory: Path) -> No
     metadata = json.loads(next(recorder.directory.glob("*.json")).read_text())
     assert metadata["error"] == "menu visible"
     assert metadata["placement"] is None
+
+
+def test_c64_open_outline_knight() -> None:
+    fixture = Path(__file__).parent / "fixtures/recognition/chess19xx-outlined-knight-c6.png"
+    with Image.open(fixture) as frame:
+        result = create_reader("chess19xx").read(frame)
+    assert result.placement == "1r3rk1/p1p2ppp/B1Nqp3/1P1p1b2/3P4/2b1P3/3K1PPP/R1R5"
+
+
+def test_c64_moved_king_resampling() -> None:
+    reader = create_reader("chess19xx")
+    with Image.open(reader.profile.reference.with_name("recognition-king-a4.png")) as frame:
+        result = reader.read(frame)
+    assert result.placement == "4rrk1/pBpq1ppp/R1N1p3/1P1p1b2/K2P1P2/4P1P1/7P/2R5"

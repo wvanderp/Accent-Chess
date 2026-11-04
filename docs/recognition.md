@@ -85,3 +85,15 @@ the same transport without requiring the image reader or an open viewer.
 Run `python -m pytest -q` for native reference recognition, changed-square
 recognition, rejected frames, debug limits, repeated-capture confirmation and
 real HTTP publication/stale-frame regression checks.
+
+The 22:18 C64 debug frames exposed open seams in the outlined c6 knight.
+Flood filling alone leaves its interior empty. The C64 profile now enables
+scanline filling between silhouette edges before hole filling; Grandmaster
+retains its existing extraction. The captured position is a regression fixture.
+
+The 22:25 captures contain a white king on a4, misclassified as a knight
+(distance 0.198 versus king 0.345). The king-count rejection meant zero white
+kings, not multiple kings. King-count errors now report both counts. Profiles
+support explicitly labeled supplementary templates; the C64 profile includes
+this captured a4 king to cover its different resampling phase. These labels
+train shapes only and do not impose the captured placement on observations.

@@ -197,3 +197,45 @@ def test_c64_rejects_unverified_promotion_without_sending_keys() -> None:
     with pytest.raises(ValueError, match="promotion"):
         connector.move(chess.Move.from_uci("a7a8q"))
     assert not client.events
+
+
+def test_attach_from_active_clock_without_reset() -> None:
+    class ClockConnector(FakeConnector):
+        def clock_samples(self, frame: Image.Image) -> tuple[bytes, bytes]:
+            return frame.crop((0, 0, 1, 1)).tobytes(), b"black"
+
+    session = PlaySession(ClockConnector())
+    session.observe(FRAME, chess.STARTING_BOARD_FEN)
+    session.observe(FRAME, chess.STARTING_BOARD_FEN)
+    assert session.board is None
+    changed = FRAME.copy()
+    changed.putpixel((0, 0), (255, 255, 255))
+    session.observe(changed, chess.STARTING_BOARD_FEN)
+    assert session.ready
+    assert session.board is not None and session.board.turn == chess.WHITE
+    assert not session.board.castling_rights
+
+
+def test_analysis_available_on_confirmed_computer_turn() -> None:
+    session = ready_session()
+    session.submit("e2e4")
+    assert not session.state()["analyzable"]
+    board = chess.Board()
+    board.push_uci("e2e4")
+    session.observe(FRAME, board.board_fen())
+    assert session.state()["turn"] == "black"
+    assert session.state()["analyzable"]
+    assert not session.ready
+    session.observe(FRAME, None)
+    assert session.state()["turn"] is None
+    assert not session.state()["analyzable"]
+
+
+def test_c64_lower_clock_is_white() -> None:
+    connector = C64Connector(None)
+    baseline = connector.clock_samples(FRAME)
+    changed = FRAME.copy()
+    changed.putpixel((450, 205), (255, 255, 255))
+    samples = connector.clock_samples(changed)
+    assert samples[0] != baseline[0]
+    assert samples[1] == baseline[1]
