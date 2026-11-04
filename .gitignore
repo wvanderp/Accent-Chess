@@ -1,3 +1,6 @@
 __pycache__
 *.egg-info/
 debug-frames/
+
+tournament-data/
+tournament.json

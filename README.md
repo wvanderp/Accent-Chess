@@ -126,3 +126,31 @@ To make this project a success, it needs to be easily accessible. Controlling it
 The challenge with the UCI protocol is that the game state is very fragile, and UCI can ask an engine to start from any game state.
 
 To ensure we can accommodate this, we need to implement a more narrow version of the UCI protocol and error out when we cannot handle the request.
+
+Match history is permanent in `tournament-data/state.json`. No tournament
+configuration file is required. The game catalog automatically adds all ordered
+pairings, retaining attempts and results when new games are added.
+
+```powershell
+python -m emulation.tournament pending
+python -m emulation.tournament run --count 10
+python -m emulation.tournament ranking
+python -m emulation.tournament history
+```
+
+Each attempt has a UUID artifact folder with PGN, confirmed move log, and a
+failure traceback plus last available screenshot. Failed or interrupted attempts
+remain pending. Rankings count completed games only. Use one runner at a time;
+JSON saves use atomic replacement. Back up the entire data directory.
+
+Runtime URLs and any additional UCI engine definitions live in the permanent
+state itself. Catalog games default to ports 8765 onward. Existing SQLite
+history is not automatically imported. The runner currently supports UCI White
+versus vintage Black; unsupported pending pairings are reported explicitly.
+
+Board orientation is not engine color. Reflecting ranks and swapping colors
+preserves chess rules (including castling); it also swaps the side to move.
+Two fixed-color vintage engines therefore require a verified position-loading
+or side-switch operation to bootstrap the mirrored emulator. Display rotation
+alone cannot enable vintage-versus-vintage play. No fabricated results are
+recorded for those pending pairings.

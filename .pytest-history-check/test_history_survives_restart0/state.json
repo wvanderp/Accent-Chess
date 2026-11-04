@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "engines": {
+    "grandmaster": {
+      "kind": "vintage",
+      "game": "grandmaster",
+      "url": "http://127.0.0.1:8765"
+    },
+    "chess19xx": {
+      "kind": "vintage",
+      "game": "chess19xx",
+      "url": "http://127.0.0.1:8766"
+    }
+  },
+  "pairings": [
+    {
+      "white": "grandmaster",
+      "black": "chess19xx",
+      "attempts": [
+        {
+          "id": "004d9c1c2be14caf91d091b314fea4cf",
+          "started": "2026-11-04T22:51:01.350614+00:00",
+          "status": "failed",
+          "result": null,
+          "error": "timeout"
+        },
+        {
+          "id": "d09dd135e8fe4752bf9462f0da224533",
+          "started": "2026-11-04T22:51:01.366761+00:00",
+          "status": "completed",
+          "result": "1-0",
+          "error": null
+        }
+      ]
+    },
+    {
+      "white": "chess19xx",
+      "black": "grandmaster",
+      "attempts": []
+    }
+  ]
+}
