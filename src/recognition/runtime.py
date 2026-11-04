@@ -77,8 +77,10 @@ class RuntimeRecognizer:
         self.last_png = b""
         self.cached: Observation | None = None
         self.error: str | None = None
+        self.confirmed_placement: str | None = None
 
     def process(self, snapshot: dict[str, Any]) -> str:
+        self.confirmed_placement = None
         png = base64.b64decode(snapshot["png"], validate=True)
         if png != self.last_png:
             self.last_png = png
@@ -104,4 +106,5 @@ class RuntimeRecognizer:
             if error.code != 400:
                 raise
             return "Frame advanced during recognition; waiting for next capture"
+        self.confirmed_placement = placement
         return "Recognized piece placement (turn and castling unknown)"

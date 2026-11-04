@@ -7,3 +7,5 @@ Use python type hints for all functions and methods. This will help with code re
 When implementing new Engine connectors, dont use sleep statements to wait for the engine to make a move. Instead, implement proper waiting mechanisms that check the ui of the vintage game to see when it has made its move. This will make the connectors more reliable and efficient.
 
 Document the code with the findings during investigations. This will help future developers understand the reasoning behind certain decisions and make it easier to maintain the codebase.
+
+Please remember that image recognition is not the only way to Rome. You may also read the memory of the game or use other ways of determining the state of the game.

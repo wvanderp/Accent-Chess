@@ -82,6 +82,15 @@ def test_live_grandmaster_move_and_reply(fixture_name: str, moves: list[str]) ->
         assert create_reader("grandmaster").read(frame).placement == expected.board_fen()
 
 
+def test_live_c64_knight_on_resampled_light_square() -> None:
+    board = chess.Board()
+    board.push_uci("a2a3")
+    board.push_uci("b8c6")
+    fixture = Path(__file__).parent / "fixtures/recognition/chess19xx-a3-nc6.png"
+    with Image.open(fixture) as frame:
+        assert create_reader("chess19xx").read(frame).placement == board.board_fen()
+
+
 class ImageBackend:
     def __init__(self, png: bytes) -> None:
         self.png = png

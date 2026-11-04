@@ -27,6 +27,7 @@ class Profile:
     region: tuple[int, int, int, int]
     backgrounds: tuple[tuple[int, int, int], tuple[int, int, int]]
     color_reader: Callable[[Image.Image, np.ndarray], chess.Color]
+    template_shift: int = 0
 
 
 @dataclass
@@ -78,6 +79,15 @@ class BoardReader:
                     assert piece is not None
                     mask = silhouette(square, profile.backgrounds[(file + row) % 2])
                     self.templates.append((piece.piece_type, mask))
+        # GTK resamples C64 squares at fractional boundaries. Their silhouettes
+        # can shift by 1-2 normalized pixels; without alignment a moved knight
+        # on c6 was closer to the bishop template than to the knight template.
+        variants = [(kind, np.roll(mask, (dy, dx), (0, 1)))
+                    for kind, mask in self.templates
+                    for dy in range(-profile.template_shift, profile.template_shift + 1)
+                    for dx in range(-profile.template_shift, profile.template_shift + 1)]
+        self.kinds = [kind for kind, _ in variants]
+        self.masks = np.stack([mask for _, mask in variants])
 
     def read(self, frame: Image.Image) -> Observation:
         if frame.size != (640, 480):
@@ -101,9 +111,10 @@ class BoardReader:
                 symbol = "."
                 score = 0.0
                 if np.mean(mask) > 0.025:
-                    matches = [(float(np.count_nonzero(mask ^ template) / max(1, np.count_nonzero(mask | template))), kind)
-                               for kind, template in self.templates]
-                    score, kind = min(matches)
+                    distances = (np.count_nonzero(mask ^ self.masks, axis=(1, 2)) /
+                                 np.maximum(1, np.count_nonzero(mask | self.masks, axis=(1, 2))))
+                    best = int(np.argmin(distances))
+                    score, kind = float(distances[best]), self.kinds[best]
                     if score > 0.38:
                         raise RecognitionError(f"Unknown piece at {chess.square_name(chess.square(file, 7-row))} (distance {score:.3f})")
                     color = self.profile.color_reader(square, mask)

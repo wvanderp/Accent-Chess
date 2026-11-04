@@ -36,7 +36,7 @@ def local_command() -> list[str]:
 def supervise(command: list[str]) -> None:
     process = subprocess.Popen(command)
     try:
-        with make_server(Session(X11Backend()), "0.0.0.0", 8765) as server:
+        with make_server(Session(X11Backend(), os.environ.get("GAME_ID")), "0.0.0.0", 8765) as server:
             # A crashed emulator must not leave a healthy-looking service running.
             from threading import Thread
 

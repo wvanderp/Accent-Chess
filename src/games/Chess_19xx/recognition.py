@@ -21,4 +21,5 @@ def piece_color(square: Image.Image, mask: np.ndarray) -> chess.Color:
 
 
 PROFILE = Profile("chess19xx", Path(__file__).with_name("recognition.png"),
-                  (180, 138, 242, 193), ((213, 213, 213), (62, 81, 240)), piece_color)
+                  (180, 138, 242, 193), ((213, 213, 213), (62, 81, 240)), piece_color,
+                  template_shift=2)

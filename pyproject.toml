@@ -15,5 +15,5 @@ include = ["emulation*", "games*", "recognition*"]
 exclude = ["games.*.tests*"]
 
 [tool.setuptools.package-data]
-"games.Grandmaster_Chess" = ["recognition.png"]
+"games.Grandmaster_Chess" = ["recognition.png", "game-menu.png", "new-game-confirm.png"]
 "games.Chess_19xx" = ["recognition.png"]

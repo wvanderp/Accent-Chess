@@ -16,6 +16,15 @@ The panel recognizes their default 2D boards directly from runtime frames. Enabl
 `debug-frames/`. For headless recognition or offline frame analysis, see
 [recognition and debugging](docs/recognition.md).
 
+To play either game, press **Start game**, then **New game**. Wait for
+**White to move · your turn**, then click a piece and its destination on the
+drawn board. The panel types the move in the emulator and recognizes the engine's reply
+before accepting the next move. **New game** also resets a game already in progress.
+For Grandmaster, keep the default **Computer plays BLACK** mode and the default
+2D board. Chess 19xx uses keyboard coordinates such as `A2-A3`, then Return;
+the drawn board handles this automatically.
+See [local play architecture and findings](docs/local-play.md).
+
 The architecture consists of two major parts. First, we have classes that know how to work with the emulators. Second, we have a UCI interface. The special sauce is the class that knows how to connect the two.
 
 ### Emulator Classes

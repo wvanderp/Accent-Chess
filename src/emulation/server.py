@@ -18,8 +18,9 @@ from .backend import Backend, X11Backend
 
 
 class Session:
-    def __init__(self, backend: Backend) -> None:
+    def __init__(self, backend: Backend, game: str | None = None) -> None:
         self.backend = backend
+        self.game = game
         self.lock = Lock()
         self.sequence = 0
         self.png = b""
@@ -32,6 +33,7 @@ class Session:
                 self.sequence += 1
                 self.png = png
             return {"version": 1, "frame_id": self.sequence,
+                    "game": self.game,
                     "png": base64.b64encode(self.png).decode("ascii"), "board": self.board}
 
     def publish(self, fen: str, frame_id: int, *, placement_only: bool = False) -> None:
@@ -83,10 +85,17 @@ def make_server(session: Session, host: str, port: int) -> ThreadingHTTPServer:
                         session.publish(data["fen"], int(data["frame_id"]))
                 elif self.path == "/v1/key":
                     with session.lock:
-                        session.backend.key(data["name"])
+                        if "delay_ms" in data or "window_title" in data:
+                            session.backend.key(data["name"], delay_ms=data.get("delay_ms", 12),
+                                                window_title=data.get("window_title"))
+                        else:
+                            session.backend.key(data["name"])
                 elif self.path == "/v1/click":
                     with session.lock:
                         session.backend.click(int(data["x"]), int(data["y"]))
+                elif self.path == "/v1/pointer":
+                    with session.lock:
+                        session.backend.move_pointer(int(data["x"]), int(data["y"]))
                 else:
                     self.reply(404, {"error": "Unknown endpoint"})
                     return
