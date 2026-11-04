@@ -20,7 +20,7 @@ import io
 import sys
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent.resolve()))
 
-from connector import GameConnector
+from archive_org_connector import ArchiveOrgConnector
 from utils.nameToType import nameToPiece, nameToColor
 
 
@@ -51,7 +51,7 @@ def prepare(img: Image.Image) -> np.ndarray:
     return img
 
 
-class GrandmasterChessConnector(GameConnector):
+class GrandmasterChessConnector(ArchiveOrgConnector):
     """
     Game connector for Grandmaster Chess 1993 DOS game.
     Uses Playwright to control the archive.org DOS emulator.
@@ -71,6 +71,7 @@ class GrandmasterChessConnector(GameConnector):
         self.classifier: Optional[GradientBoostingClassifier] = None
         self.board_region: Optional[tuple[int, int, int, int]] = None
         self._initialized = False
+        self._save_training_data = False  # Don't save screenshots during gameplay
         
         # Canvas element coordinates (relative to the iframe/canvas)
         self._canvas_offset: tuple[int, int] = (0, 0)
@@ -153,22 +154,34 @@ class GrandmasterChessConnector(GameConnector):
     def _take_board_screenshot(self) -> Optional[Image.Image]:
         """Take a screenshot of the game board area."""
         if not self._page:
+            logging.error("Cannot take screenshot: page not available")
             return None
         
-        canvas_bounds = self._get_canvas_bounds()
-        if not canvas_bounds:
+        try:
+            canvas_bounds = self._get_canvas_bounds()
+            if not canvas_bounds:
+                logging.error("Cannot take screenshot: canvas bounds not available")
+                return None
+            
+            logging.debug(f"Canvas bounds: {canvas_bounds}")
+            
+            # Take screenshot of the canvas area
+            screenshot_bytes = self.get_emulator_canvas().screenshot()
+            screenshot = Image.open(io.BytesIO(screenshot_bytes))
+            
+            logging.debug(f"Canvas screenshot size: {screenshot.size}")
+            
+            # Crop to the board region if known
+            if self.board_region:
+                x, y, w, h = self.board_region
+                logging.debug(f"Cropping to board region: x={x}, y={y}, w={w}, h={h}")
+                screenshot = screenshot.crop((x, y, x + w, y + h))
+                logging.debug(f"Cropped board size: {screenshot.size}")
+            
+            return screenshot
+        except Exception as e:
+            logging.error(f"Failed to take board screenshot: {e}")
             return None
-        
-        # Take screenshot of the canvas area
-        screenshot_bytes = self.get_emulator_canvas().screenshot()
-        screenshot = Image.open(io.BytesIO(screenshot_bytes))
-        
-        # Crop to the board region if known
-        if self.board_region:
-            x, y, w, h = self.board_region
-            screenshot = screenshot.crop((x, y, x + w, y + h))
-        
-        return screenshot
     
     # =========================================================================
     # GameConnector Implementation
@@ -210,32 +223,52 @@ class GrandmasterChessConnector(GameConnector):
     
     def get_board_state(self) -> Board:
         """Read and return the current board state from the emulator."""
-        screenshot = self._take_board_screenshot()
-        if screenshot is None:
-            raise RuntimeError("Could not capture board screenshot")
+        max_retries = 3
+        last_error = None
         
-        # Important: start from an empty board. Using Board() would include the
-        # standard starting position and create "phantom" pieces when we set
-        # detected pieces on top.
-        board = Board(None)
-        for x in range(8):
-            for y in range(8):
-                square_image = screenshot.crop((
-                    x * self.squareSize[0],
-                    y * self.squareSize[1],
-                    (x + 1) * self.squareSize[0],
-                    (y + 1) * self.squareSize[1]
-                ))
+        for attempt in range(max_retries):
+            try:
+                screenshot = self._take_board_screenshot()
+                if screenshot is None:
+                    raise RuntimeError("Could not capture board screenshot")
                 
-                piece = self._get_piece(square_image)
-                color = self._get_color(square_image)
+                # Save a debug screenshot on first attempt
+                if attempt == 0:
+                    debug_path = pathlib.Path(__file__).parent.resolve() / "debug_board.png"
+                    screenshot.save(debug_path)
+                    logging.debug(f"Saved debug board screenshot to {debug_path}")
                 
-                coordinate = ["a", "b", "c", "d", "e", "f", "g", "h"][x] + str(7 - y + 1)
+                # Important: start from an empty board. Using Board() would include the
+                # standard starting position and create "phantom" pieces when we set
+                # detected pieces on top.
+                board = Board(None)
+                for x in range(8):
+                    for y in range(8):
+                        square_image = screenshot.crop((
+                            x * self.squareSize[0],
+                            y * self.squareSize[1],
+                            (x + 1) * self.squareSize[0],
+                            (y + 1) * self.squareSize[1]
+                        ))
+                        
+                        piece = self._get_piece(square_image)
+                        color = self._get_color(square_image)
+                        
+                        coordinate = ["a", "b", "c", "d", "e", "f", "g", "h"][x] + str(7 - y + 1)
+                        
+                        if piece is not None:
+                            board.set_piece_at(parse_square(coordinate), Piece(piece, color))
                 
-                if piece is not None:
-                    board.set_piece_at(parse_square(coordinate), Piece(piece, color))
+                logging.debug(f"Successfully read board state (attempt {attempt + 1}/{max_retries})")
+                return board
+                
+            except Exception as e:
+                last_error = e
+                logging.warning(f"Failed to read board state (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1 and self._page:
+                    self._page.wait_for_timeout(500)  # Wait before retry
         
-        return board
+        raise RuntimeError(f"Failed to read board state after {max_retries} attempts: {last_error}")
     
     def setup_new_game(self) -> bool:
         """Set up a new game in the emulator."""
@@ -253,37 +286,45 @@ class GrandmasterChessConnector(GameConnector):
     def execute_move(self, move: Move) -> bool:
         """Execute a move on the emulator."""
         if not self._page:
+            logging.error("Cannot execute move: page not available")
             return False
         
-        canvas_bounds = self._get_canvas_bounds()
-        if not canvas_bounds:
+        try:
+            canvas_bounds = self._get_canvas_bounds()
+            if not canvas_bounds:
+                logging.error("Cannot execute move: canvas bounds not available")
+                return False
+            
+            # Click on the canvas to ensure focus
+            canvas_x = canvas_bounds["x"]
+            canvas_y = canvas_bounds["y"]
+            
+            # Click in the input area (relative to board position)
+            if self.board_region:
+                input_x = canvas_x + self.board_region[0] + 150
+                input_y = canvas_y + self.board_region[1] + 40
+                self._page.mouse.click(input_x, input_y)
+                self._page.wait_for_timeout(200)
+            
+            # Type the move in UCI notation
+            text = move.uci()
+            logging.info(f"Executing move: {text}")
+            self.type_text(text, delay=50)
+            
+            self._page.wait_for_timeout(100)
+            self.press_key("Enter")
+            
+            # Wait for the move to be processed before pressing ESC
+            self._page.wait_for_timeout(500)
+            
+            self.press_key("Escape")
+            
+            logging.debug(f"Successfully sent move {text} to emulator")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Failed to execute move {move.uci()}: {e}")
             return False
-        
-        # Click on the canvas to ensure focus
-        canvas_x = canvas_bounds["x"]
-        canvas_y = canvas_bounds["y"]
-        
-        # Click in the input area (relative to board position)
-        if self.board_region:
-            input_x = canvas_x + self.board_region[0] + 150
-            input_y = canvas_y + self.board_region[1] + 40
-            self._page.mouse.click(input_x, input_y)
-            self._page.wait_for_timeout(200)
-        
-        # Type the move in UCI notation
-        text = move.uci()
-        logging.debug(f"Typing move: {text}")
-        self.type_text(text, delay=50)
-        
-        self._page.wait_for_timeout(100)
-        self.press_key("Enter")
-        
-        # Wait for the move to be processed before pressing ESC
-        self._page.wait_for_timeout(500)
-        
-        self.press_key("Escape")
-        
-        return True
     
     def wait_for_engine_move(self, expected_pre_state: Optional[Board] = None, timeout: float = 180.0) -> Optional[Move]:
         """Wait for the emulator's engine to make its move.
@@ -296,6 +337,8 @@ class GrandmasterChessConnector(GameConnector):
         """
         from utils.moveFromFens import moveFromFens
         
+        logging.info("Waiting for engine to make a move...")
+        
         # If we have an expected pre-state, wait until the screen stably matches it
         # This prevents race conditions where the engine moves too quickly
         if expected_pre_state is not None:
@@ -305,72 +348,104 @@ class GrandmasterChessConnector(GameConnector):
             stable_samples = 0
             required_stable_samples = 2  # Must match for at least 2 consecutive reads
             
+            logging.debug(f"Waiting for screen to match expected pre-state: {expected_fen}")
+            
             while time.time() - start < max_wait:
-                current = self.get_board_state()
-                current_fen = current.fen().split()[0]
-                if current_fen == expected_fen:
-                    stable_samples += 1
-                    if stable_samples >= required_stable_samples:
-                        # Confirmed stable match
-                        break
-                else:
-                    # Reset if we see a different state
+                try:
+                    current = self.get_board_state()
+                    current_fen = current.fen().split()[0]
+                    if current_fen == expected_fen:
+                        stable_samples += 1
+                        if stable_samples >= required_stable_samples:
+                            # Confirmed stable match
+                            logging.debug("Pre-state confirmed stable")
+                            break
+                    else:
+                        # Reset if we see a different state
+                        stable_samples = 0
+                except Exception as e:
+                    logging.debug(f"Error reading board state while waiting for pre-state: {e}")
                     stable_samples = 0
+                
                 if self._page is not None:
-                    self._page.wait_for_timeout(200)
+                    self._page.wait_for_timeout(300)
                 else:
-                    time.sleep(0.2)
+                    time.sleep(0.3)
             else:
                 logging.warning("Screen didn't stably match expected state, proceeding anyway")
         
         # Capture the current state as pre-state after confirming stability
-        pre_state = self.get_board_state()
-        if expected_pre_state is not None:
-            _copy_position_metadata(source=expected_pre_state, target=pre_state)
-        pre_fen = pre_state.fen().split()[0]
-        logging.debug(f"Pre-state for engine move: {pre_state.fen()}")
+        try:
+            pre_state = self.get_board_state()
+            if expected_pre_state is not None:
+                _copy_position_metadata(source=expected_pre_state, target=pre_state)
+            pre_fen = pre_state.fen().split()[0]
+            logging.debug(f"Pre-state for engine move: {pre_state.fen()}")
+        except Exception as e:
+            logging.error(f"Failed to capture pre-state: {e}")
+            return None
         
         # Poll for board changes - wait until the board looks different
         start_time = time.time()
         stable_count = 0
         last_fen = None
+        poll_count = 0
         
         while time.time() - start_time < timeout:
-            if self._page is not None:
-                self._page.wait_for_timeout(500)
-            else:
-                time.sleep(0.5)
+            elapsed = time.time() - start_time
             
-            current = self.get_board_state()
-            current_fen = current.fen().split()[0]
+            # Use longer poll interval to reduce screenshot frequency
+            poll_interval = 800  # milliseconds
+            if self._page is not None:
+                self._page.wait_for_timeout(poll_interval)
+            else:
+                time.sleep(poll_interval / 1000.0)
+            
+            poll_count += 1
+            
+            # Log progress every 10 seconds
+            if poll_count % 12 == 0:  # 12 * 800ms ≈ 10s
+                logging.info(f"Still waiting for engine move... ({elapsed:.1f}s elapsed)")
+            
+            try:
+                current = self.get_board_state()
+                current_fen = current.fen().split()[0]
+            except Exception as e:
+                logging.debug(f"Failed to read board state while waiting for engine move: {e}")
+                continue
             
             # Check if board changed from pre-state
             if current_fen != pre_fen:
                 # Board changed! Now wait for it to stabilize
                 if current_fen == last_fen:
                     stable_count += 1
-                    if stable_count >= 3:  # Stable for 1.5 seconds
+                    logging.debug(f"Board change detected, stability count: {stable_count}/3")
+                    if stable_count >= 3:  # Stable for ~2.4 seconds
                         post_state = current
                         # Copy metadata from pre_state, then flip the turn since a move was made
                         if expected_pre_state is not None:
                             _copy_position_metadata(source=pre_state, target=post_state)
                             post_state.turn = not pre_state.turn
-                        logging.debug(f"Post-state after engine move: {post_state.fen()}")
+                        logging.info(f"Engine move detected! Post-state: {post_state.fen()}")
                         
                         try:
                             move = moveFromFens(pre_state, post_state)
+                            logging.info(f"Detected engine move: {move.uci()}")
                             return move
                         except Exception as e:
-                            logging.error(f"Failed to detect engine move: {e}")
+                            logging.error(f"Failed to parse engine move from FEN change: {e}")
+                            logging.error(f"Pre:  {pre_state.fen()}")
+                            logging.error(f"Post: {post_state.fen()}")
                             return None
                 else:
-                    stable_count = 0
+                    stable_count = 1
                     last_fen = current_fen
+                    logging.debug(f"Board change detected (FEN: {current_fen[:20]}...)")
             else:
                 stable_count = 0
                 last_fen = current_fen
         
-        logging.warning("Timeout waiting for engine move")
+        logging.error(f"Timeout waiting for engine move after {timeout}s")
         return None
     
     def is_engine_thinking(self) -> bool:
@@ -439,9 +514,14 @@ class GrandmasterChessConnector(GameConnector):
         piece_name = self.classifier.predict([prepare(square)])
         
         # Save for training data collection (using hash to avoid duplicates)
-        path = pathlib.Path(__file__).parent.resolve() / "squares" / str(piece_name[0])
-        path.mkdir(parents=True, exist_ok=True)
-        square.save(path / (sha256(square.tobytes()).hexdigest() + '.png'))
+        # Only save during training/debugging, not during normal gameplay
+        if self._save_training_data:
+            try:
+                path = pathlib.Path(__file__).parent.resolve() / "squares" / str(piece_name[0])
+                path.mkdir(parents=True, exist_ok=True)
+                square.save(path / (sha256(square.tobytes()).hexdigest() + '.png'))
+            except Exception as e:
+                logging.debug(f"Failed to save training image: {e}")
         
         if piece_name[0] == 'empty':
             return None

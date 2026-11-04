@@ -19,7 +19,7 @@ import io
 import sys
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent.resolve()))
 
-from connector import GameConnector
+from archive_org_connector import ArchiveOrgConnector
 from utils.nameToType import nameToPiece, nameToColor
 
 
@@ -41,7 +41,7 @@ def prepare(img: Image.Image) -> np.ndarray:
     return img
 
 
-class Chess19xxConnector(GameConnector):
+class Chess19xxConnector(ArchiveOrgConnector):
     """
     Game connector for Chess 19xx DOS game.
     Uses Playwright to control the archive.org DOS emulator.

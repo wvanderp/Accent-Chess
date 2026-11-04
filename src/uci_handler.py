@@ -12,7 +12,7 @@ from typing import Optional, TextIO, Callable
 from chess import Board, Move, STARTING_FEN, WHITE, BLACK
 
 from state import GameState, StateTransitionError
-from connector import GameConnector
+from GameConnector import GameConnector
 
 
 class UCIHandler:
