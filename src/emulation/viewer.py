@@ -3,6 +3,7 @@
 import argparse
 import base64
 import io
+from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Thread
 import tkinter as tk
@@ -15,21 +16,37 @@ from PIL import Image, ImageTk
 from .client import RuntimeClient
 from .control import DockerControl
 from games.catalog import GAMES
+from recognition.runtime import FrameRecorder, RuntimeRecognizer
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runtime", default="http://127.0.0.1:8765")
+    parser.add_argument("--game", choices=GAMES, default="grandmaster")
+    parser.add_argument("--debug-frames", type=Path, help="Save recognition frames to this directory")
     args = parser.parse_args()
     client = RuntimeClient(args.runtime)
     root = tk.Tk()
     root.title("Accent Chess — control panel")
     toolbar = ttk.Frame(root, padding=8)
     toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
-    selected = tk.StringVar(value="grandmaster")
+    selected = tk.StringVar(value=args.game)
     ttk.Label(toolbar, text="Game").pack(side="left", padx=4)
     picker = ttk.Combobox(toolbar, textvariable=selected, values=list(GAMES), state="readonly", width=20)
     picker.pack(side="left", padx=4)
+    recognition_enabled = tk.BooleanVar(value=True)
+    debug_enabled = tk.BooleanVar(value=args.debug_frames is not None)
+    configurations: Queue[tuple[str, bool, bool]] = Queue()
+
+    def configure_recognition(*unused: object) -> None:
+        configurations.put((selected.get(), recognition_enabled.get(), debug_enabled.get()))
+
+    selected.trace_add("write", configure_recognition)
+    ttk.Checkbutton(toolbar, text="Recognize board", variable=recognition_enabled,
+                    command=configure_recognition).pack(side="left", padx=4)
+    ttk.Checkbutton(toolbar, text="Save debug frames", variable=debug_enabled,
+                    command=configure_recognition).pack(side="left", padx=4)
+    configure_recognition()
     messages: Queue[str] = Queue()
     control = DockerControl(messages.put)
     busy = False
@@ -105,9 +122,24 @@ def main() -> None:
     stop = Event()
 
     def fetch() -> None:
+        recognizer: RuntimeRecognizer | None = None
+        configuration: tuple[str, bool, bool] | None = None
         while not stop.is_set():
             try:
+                latest = configuration
+                while not configurations.empty():
+                    latest = configurations.get_nowait()
+                if latest != configuration:
+                    configuration = latest
+                    assert configuration is not None
+                    game, enabled, debug = configuration
+                    recorder = FrameRecorder(args.debug_frames or Path("debug-frames"), game) if enabled and debug else None
+                    recognizer = RuntimeRecognizer(game, client, recorder) if enabled else None
+                    if recorder:
+                        messages.put(f"Saving up to {recorder.limit} changed frames to {recorder.directory}")
                 update: dict[str, Any] | str = client.snapshot()
+                if recognizer:
+                    update["recognition_status"] = recognizer.process(update)
             except Exception as error:
                 update = f"Disconnected: {error}"
             if updates.empty():
@@ -160,6 +192,10 @@ def main() -> None:
                 if observation:
                     stale = observation["frame_id"] != update["frame_id"]
                     message = f"Board from frame {observation['frame_id']}" + (" (older than image)" if stale else "")
+                    if observation.get("kind") == "placement":
+                        message += " · piece placement only"
+                if "recognition_status" in update:
+                    message += " · " + update["recognition_status"]
                 status.configure(text=f"Image frame {update['frame_id']} · {message}")
         except Empty:
             pass

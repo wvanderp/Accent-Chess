@@ -7,9 +7,13 @@ name = "accent-chess"
 version = "0.1.0"
 description = "Local emulation tools for vintage chess games"
 requires-python = ">=3.10"
-dependencies = ["chess", "pillow"]
+dependencies = ["chess", "pillow", "numpy"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["emulation*", "games*"]
+include = ["emulation*", "games*", "recognition*"]
 exclude = ["games.*.tests*"]
+
+[tool.setuptools.package-data]
+"games.Grandmaster_Chess" = ["recognition.png"]
+"games.Chess_19xx" = ["recognition.png"]

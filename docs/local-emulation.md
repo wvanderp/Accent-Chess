@@ -7,6 +7,11 @@ Keep `GameConnector` as the UCI boundary. Docker packages an emulator; Docker it
 
 This change implements DOS/C64 runtimes and a native control panel. It does **not** yet replace the Archive connectors in `main.py`, recognize a local game, or claim that all games in the README work. Per-game Python setup scripts download media inside Docker. Manual extracted DOS media remains supported as an alternative.
 
+**Update:** local recognition is now available in the panel and as a headless
+command for the two calibrated default boards. See [recognition and frame
+debugging](recognition.md) for implementation, usage and validation limits.
+The investigation below describes the initial runtime milestone.
+
 ## Options investigated
 
 | Target                                                   | Runtime                                        | Installation and integration tradeoff                                                                                                                                                       |

@@ -11,6 +11,10 @@ The existing UCI game connectors still use Archive.org pending per-game migratio
 Launch `python -m emulation.viewer` for the control panel. Choose a game and press
 Start game to build and start Docker, download its media inside the container, and
 watch the emulator. Grandmaster uses DOSBox; Chess 19xx uses VICE for Commodore 64.
+The panel recognizes their default 2D boards directly from runtime frames. Enable
+**Save debug frames** to collect PNGs, annotated boards and JSON diagnostics under
+`debug-frames/`. For headless recognition or offline frame analysis, see
+[recognition and debugging](docs/recognition.md).
 
 The architecture consists of two major parts. First, we have classes that know how to work with the emulators. Second, we have a UCI interface. The special sauce is the class that knows how to connect the two.
 

@@ -71,6 +71,17 @@ class RuntimeTests(unittest.TestCase):
             self.client.send("board", {"fen": "invalid", "frame_id": frame["frame_id"]})
         self.assertEqual(context.exception.code, 400)
 
+    def test_placement_publication_does_not_claim_position_metadata(self) -> None:
+        frame = self.client.snapshot()
+        self.client.send("board", {"placement": chess.STARTING_BOARD_FEN,
+                                   "frame_id": frame["frame_id"]})
+        observation = self.client.snapshot()["board"]
+        self.assertEqual(observation["kind"], "placement")
+        self.assertEqual(chess.Board(observation["fen"]).board_fen(), chess.STARTING_BOARD_FEN)
+        with self.assertRaises(HTTPError) as context:
+            self.client.send("board", {"placement": "invalid", "frame_id": frame["frame_id"]})
+        self.assertEqual(context.exception.code, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

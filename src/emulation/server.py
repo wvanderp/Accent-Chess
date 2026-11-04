@@ -34,12 +34,13 @@ class Session:
             return {"version": 1, "frame_id": self.sequence,
                     "png": base64.b64encode(self.png).decode("ascii"), "board": self.board}
 
-    def publish(self, fen: str, frame_id: int) -> None:
+    def publish(self, fen: str, frame_id: int, *, placement_only: bool = False) -> None:
         board = chess.Board(fen)
         with self.lock:
             if frame_id != self.sequence or not self.png:
                 raise ValueError("Recognition must reference the latest captured frame")
-            self.board = {"fen": board.fen(), "frame_id": frame_id}
+            self.board = {"fen": board.fen(), "frame_id": frame_id,
+                          "kind": "placement" if placement_only else "position"}
 
 
 def make_server(session: Session, host: str, port: int) -> ThreadingHTTPServer:
@@ -73,7 +74,13 @@ def make_server(session: Session, host: str, port: int) -> ThreadingHTTPServer:
                     raise ValueError("Invalid request size")
                 data = json.loads(self.rfile.read(length))
                 if self.path == "/v1/board":
-                    session.publish(data["fen"], int(data["frame_id"]))
+                    if "placement" in data:
+                        placement = data["placement"]
+                        board = chess.Board(None)
+                        board.set_board_fen(placement)
+                        session.publish(board.fen(), int(data["frame_id"]), placement_only=True)
+                    else:
+                        session.publish(data["fen"], int(data["frame_id"]))
                 elif self.path == "/v1/key":
                     with session.lock:
                         session.backend.key(data["name"])
