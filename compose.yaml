@@ -1,0 +1,17 @@
+services:
+  emulator:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    init: true
+    ports:
+      - "127.0.0.1:8765:8765"
+    environment:
+      GAME_EXECUTABLE: ${GAME_EXECUTABLE:?Set GAME_EXECUTABLE to the DOS executable relative to GAME_DIRECTORY}
+    volumes:
+      - type: bind
+        source: ${GAME_DIRECTORY:?Set GAME_DIRECTORY to your extracted DOS game directory}
+        target: /game
+        read_only: true
+    tmpfs:
+      - /tmp:size=512m

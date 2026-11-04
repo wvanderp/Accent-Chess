@@ -1,0 +1,5 @@
+.git
+**/__pycache__
+src/games/**/squares
+src/games/**/tests
+play.log

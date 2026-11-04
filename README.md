@@ -4,6 +4,14 @@ We want to bring old chess computers back to life in this project. It will do th
 
 ## Architecture
 
+A local DOSBox container and optional native observer are now available as a
+prototype. See [local emulation setup and architecture](docs/local-emulation.md).
+The existing UCI game connectors still use Archive.org pending per-game migration.
+
+Launch `python -m emulation.viewer` for the control panel. Choose a game and press
+Start game to build and start Docker, download its media inside the container, and
+watch the emulator. Grandmaster uses DOSBox; Chess 19xx uses VICE for Commodore 64.
+
 The architecture consists of two major parts. First, we have classes that know how to work with the emulators. Second, we have a UCI interface. The special sauce is the class that knows how to connect the two.
 
 ### Emulator Classes

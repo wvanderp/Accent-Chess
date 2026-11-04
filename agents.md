@@ -1,7 +1,3 @@
----
-applyTo: "**"
----
-
 The most important thing is architecture is more important than getting things done quickly. Plan your changes carefully before implementing them. Make sure that the architecture remains clean and extendable as the choices you make now will affect the future development of the project.
 
 I hate venvs. Do not use them. Install all dependencies globally using pip and manage versions using requirements.txt.

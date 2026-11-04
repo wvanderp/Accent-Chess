@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "accent-chess"
+version = "0.1.0"
+description = "Local emulation tools for vintage chess games"
+requires-python = ">=3.10"
+dependencies = ["chess", "pillow"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["emulation*", "games*"]
+exclude = ["games.*.tests*"]
