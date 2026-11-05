@@ -30,6 +30,7 @@ class Profile:
     template_shift: int = 0
     fill_scanlines: bool = False
     extra_templates: tuple[tuple[Path, str, int], ...] = ()
+    shape_reader: Callable[[Image.Image, tuple[int, int, int], bool], np.ndarray] | None = None
 
 
 @dataclass
@@ -79,6 +80,7 @@ class BoardReader:
 
     def __init__(self, profile: Profile) -> None:
         self.profile = profile
+        self.shape_reader = profile.shape_reader or silhouette
         self.templates: list[tuple[int, np.ndarray]] = []
         with Image.open(profile.reference) as reference:
             for row in (0, 1, 6, 7):
@@ -86,14 +88,14 @@ class BoardReader:
                     square = reference.crop(square_box(profile.region, file, row))
                     piece = chess.Board().piece_at(chess.square(file, 7 - row))
                     assert piece is not None
-                    mask = silhouette(square, profile.backgrounds[(file + row) % 2], profile.fill_scanlines)
+                    mask = self.shape_reader(square, profile.backgrounds[(file + row) % 2], profile.fill_scanlines)
                     self.templates.append((piece.piece_type, mask))
         for path, name, kind in profile.extra_templates:
             position = chess.parse_square(name)
             file, row = chess.square_file(position), 7 - chess.square_rank(position)
             with Image.open(path) as reference:
                 square = reference.crop(square_box(profile.region, file, row))
-                mask = silhouette(square, profile.backgrounds[(file + row) % 2], profile.fill_scanlines)
+                mask = self.shape_reader(square, profile.backgrounds[(file + row) % 2], profile.fill_scanlines)
                 self.templates.append((kind, mask))
         # GTK resamples C64 squares at fractional boundaries. Their silhouettes
         # can shift by 1-2 normalized pixels; without alignment a moved knight
@@ -123,7 +125,7 @@ class BoardReader:
                 background_fraction = float(np.mean(np.max(np.abs(pixels - background), axis=2) < 30))
                 if background_fraction < 0.3:
                     raise RecognitionError(f"Board/background not visible at {chess.square_name(chess.square(file, 7-row))}")
-                mask = silhouette(square, background, self.profile.fill_scanlines)
+                mask = self.shape_reader(square, background, self.profile.fill_scanlines)
                 symbol = "."
                 score = 0.0
                 if np.mean(mask) > 0.025:

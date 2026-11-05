@@ -33,9 +33,14 @@ class X11Backend:
         return output.getvalue()
 
     def key(self, name: str, delay_ms: int = 12, window_title: str | None = None) -> None:
-        # A single keysym, not an arbitrary xdotool command or shell string.
-        if not name or len(name) > 40 or not all(c.isalnum() or c == "_" for c in name):
-            raise ValueError("Expected a single X11 keysym (e.g. Return or F1)")
+        # One keysym, optionally prefixed by explicit modifiers. This enables
+        # C64 Ctrl menu shortcuts without accepting xdotool command sequences.
+        if not isinstance(name, str) or not name or len(name) > 40:
+            raise ValueError("Expected an X11 keysym or modifier chord")
+        parts = name.split("+")
+        if (len(parts) > 3 or any(part not in {"ctrl", "alt", "shift"} for part in parts[:-1])
+                or not parts[-1] or not all(c.isalnum() or c == "_" for c in parts[-1])):
+            raise ValueError("Expected an X11 keysym or modifier chord")
         if type(delay_ms) is not int or not 12 <= delay_ms <= 1000:
             raise ValueError("Key delay must be an integer between 12 and 1000 milliseconds")
         if window_title is not None:

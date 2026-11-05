@@ -26,7 +26,8 @@ class PlayConnector(Protocol):
 
 
 PLAY_MODULES = {"grandmaster": "games.Grandmaster_Chess.play",
-                "chess19xx": "games.Chess_19xx.play"}
+                "chess19xx": "games.Chess_19xx.play",
+                "chessmaster2000": "games.Chessmaster_2000.play"}
 
 
 def supports_play(game: str) -> bool:
@@ -78,7 +79,7 @@ class PlaySession:
     def new_game(self) -> None:
         self.invalidate("Resetting emulator; waiting for the starting board")
         self.resetting = True
-        self.deadline = monotonic() + 90
+        self.deadline = monotonic() + getattr(self.connector, "reset_timeout", 90)
         try:
             self.connector.reset()
         except Exception:
@@ -95,9 +96,13 @@ class PlaySession:
         self.position_confirmed = False
         self.pending = self.board.copy()
         self.pending.push(move)
-        self.deadline = monotonic() + 20
+        self.deadline = monotonic() + getattr(self.connector, "move_timeout", 20)
         self.message = f"Sent {uci}; waiting for emulator acknowledgement"
         try:
+            # Optional position context lets a connector distinguish a terminal
+            # human move (no engine reply expected) from a normal reply wait.
+            if set_position := getattr(self.connector, "set_position", None):
+                set_position(self.board.copy())
             self.connector.move(move)
         except Exception:
             self.invalidate("Move input failed; press New game to resynchronize")

@@ -10,13 +10,13 @@ The existing UCI game connectors still use Archive.org pending per-game migratio
 
 Launch `python -m emulation.viewer` for the control panel. Choose a game and press
 Start game to build and start Docker, download its media inside the container, and
-watch the emulator. Grandmaster uses DOSBox; Chess 19xx uses VICE for Commodore 64.
+watch the emulator. Grandmaster uses DOSBox; Chess 19xx and Chessmaster 2000 use VICE for Commodore 64.
 The panel recognizes their default 2D boards directly from runtime frames. Enable
 **Save debug frames** to collect PNGs, annotated boards and JSON diagnostics under
 `debug-frames/`. For headless recognition or offline frame analysis, see
 [recognition and debugging](docs/recognition.md).
 
-To play either game, press **Start game**, then **New game**. Wait for
+To play a game, press **Start game**, then **New game**. Wait for
 **White to move · your turn**, then click a piece and its destination on the
 drawn board. The panel types the move in the emulator and recognizes the engine's reply
 before accepting the next move. **New game** also resets a game already in progress.
@@ -24,6 +24,13 @@ For Grandmaster, keep the default **Computer plays BLACK** mode and the default
 2D board. Chess 19xx uses keyboard coordinates such as `A2-A3`, then Return;
 the drawn board handles this automatically.
 See [local play architecture and findings](docs/local-play.md).
+
+Choose **chessmaster2000** for The Chessmaster 2000 (1986), using the original
+two-sided Commodore 64 release. Keep the default 2D board, white at the bottom,
+and **YOU vs. CHESSMASTER**. Its disk loader needs accurate 1541 emulation, so
+booting can take longer than Chess 19xx. The connector navigates New game,
+enters moves in the text view, and returns to the board after the reply.
+See [Chessmaster 2000 findings and validation](docs/chessmaster2000.md).
 
 For Stockfish advice, use **Analyze position** when the panel confirms your turn.
 The panel displays the best move and evaluation and highlights its source and
@@ -77,7 +84,7 @@ The UCI interface needs to soften the edges of the emulators. It can talk to the
 ## Potential Games
 
 - 1K ZX Chess (<https://archive.org/details/doshaven_bootchess>)
-- Battle Chess
+- Battle Chess (<https://archive.org/details/Battle_Chess_1989_Interplay_cr_MCA_m_EMT>)
 - Bobby Fischer Teaches Chess (<https://archive.org/details/msdos_Bobby_Fischer_Teaches_Chess_1994>)
 - Chess 7.0
 - Chess Champion 2175

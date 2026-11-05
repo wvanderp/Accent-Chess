@@ -21,7 +21,8 @@ from emulation.client import RuntimeClient
 from .board import BoardReader, Observation, RecognitionError
 
 MODULES = {"grandmaster": "games.Grandmaster_Chess.recognition",
-           "chess19xx": "games.Chess_19xx.recognition"}
+           "chess19xx": "games.Chess_19xx.recognition",
+           "chessmaster2000": "games.Chessmaster_2000.recognition"}
 
 
 def create_reader(game: str) -> BoardReader:
