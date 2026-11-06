@@ -1,0 +1,268 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 808B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim-bookworm
+#2 DONE 0.8s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 109B done
+#3 DONE 0.0s
+
+#4 [1/9] FROM docker.io/library/python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
+#4 resolve docker.io/library/python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df 0.0s done
+#4 DONE 0.1s
+
+#5 [internal] load build context
+#5 transferring context: 3.45kB done
+#5 DONE 0.1s
+
+#6 [4/9] COPY docker/requirements.txt /app/docker/requirements.txt
+#6 CACHED
+
+#7 [5/9] RUN pip install --no-cache-dir -r /app/docker/requirements.txt
+#7 CACHED
+
+#8 [6/9] COPY src/emulation /app/src/emulation
+#8 CACHED
+
+#9 [3/9] WORKDIR /app
+#9 CACHED
+
+#10 [2/9] RUN sed -i 's/Components: main/Components: main contrib/' /etc/apt/sources.list.d/debian.sources     && apt-get update && apt-get install -y --no-install-recommends     dosbox vice hatari xvfb xauth xdotool libxcb1     && rm -rf /var/lib/apt/lists/*
+#10 CACHED
+
+#11 [7/9] COPY src/games /app/src/games
+#11 CACHED
+
+#12 [8/9] COPY docker/dosbox.conf /app/docker/dosbox.conf
+#12 CACHED
+
+#13 [9/9] COPY docker/smoke.py /app/docker/smoke.py
+#13 CACHED
+
+#14 exporting to image
+#14 exporting layers done
+#14 exporting manifest sha256:8930eec27ba8d6e24c002ea18a32aa94722ba51d09aa352fff52ee95c8a220b6 0.0s done
+#14 exporting config sha256:1284785aa7c4bcc994adb3294f068480afaca39c0eb9b3e4904dcf087e0340c4
+#14 exporting config sha256:1284785aa7c4bcc994adb3294f068480afaca39c0eb9b3e4904dcf087e0340c4 0.0s done
+#14 exporting attestation manifest sha256:a543cd59009fef12a0e4509ea1b20fc5775efe07d484e915ef4b256b4dadaffd 0.0s done
+#14 exporting manifest list sha256:3ad39606f041e3e5c48130620e94bce0416b0aa5ba56c0a4de61228ce12c7ce2
+#14 exporting manifest list sha256:3ad39606f041e3e5c48130620e94bce0416b0aa5ba56c0a4de61228ce12c7ce2 0.0s done
+#14 naming to docker.io/library/accent-chess-runtime:latest done
+#14 unpacking to docker.io/library/accent-chess-runtime:latest 0.0s done
+#14 DONE 0.2s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/mnvwclc72hravsmf0jp6270ls
+Playing chessmaster2000 vs grandmaster (0/3 completed)
+ac334c1ff5d5f68c62c4535b4193c5e5af8827cda7d26ca8388af13759efd1ca
+127.0.0.1:46867
+chessmaster2000: boot -> playing
+chessmaster2000: playing -> confirm
+chessmaster2000: confirm -> reset
+chessmaster2000: reset -> board
+chessmaster2000: board -> ready
+2290b1d48dd2446bc8abb4fc7807ae5313ec5cbeed5f65e4aa54fcc436af9619
+127.0.0.1:63089
+grandmaster: boot -> menu
+grandmaster: menu -> confirm
+grandmaster: confirm -> park
+grandmaster: park -> board
+grandmaster: board -> ready
+chessmaster2000 vs grandmaster: 1 c4 (c2c4)
+chessmaster2000 vs grandmaster: 2 e5 (e7e5)
+chessmaster2000 vs grandmaster: 3 Nc3 (b1c3)
+chessmaster2000 vs grandmaster: 4 Nc6 (b8c6)
+chessmaster2000 vs grandmaster: 5 Nf3 (g1f3)
+chessmaster2000 vs grandmaster: 6 f5 (f7f5)
+chessmaster2000 vs grandmaster: 7 d4 (d2d4)
+chessmaster2000 vs grandmaster: 8 exd4 (e5d4)
+chessmaster2000 vs grandmaster: 9 Nxd4 (f3d4)
+chessmaster2000 vs grandmaster: 10 Nxd4 (c6d4)
+chessmaster2000 vs grandmaster: 11 Qxd4 (d1d4)
+chessmaster2000 vs grandmaster: 12 Qf6 (d8f6)
+chessmaster2000 vs grandmaster: 13 e3 (e2e3)
+chessmaster2000 vs grandmaster: 14 Bb4 (f8b4)
+chessmaster2000 vs grandmaster: 15 Bd2 (c1d2)
+chessmaster2000 vs grandmaster: 16 c5 (c7c5)
+chessmaster2000 vs grandmaster: 17 Qxf6 (d4f6)
+chessmaster2000 vs grandmaster: 18 Nxf6 (g8f6)
+chessmaster2000 vs grandmaster: 19 Bd3 (f1d3)
+chessmaster2000 vs grandmaster: 20 Bxc3 (b4c3)
+chessmaster2000 vs grandmaster: 21 Bxc3 (d2c3)
+chessmaster2000 vs grandmaster: 22 d6 (d7d6)
+chessmaster2000 vs grandmaster: 23 Bxf6 (c3f6)
+chessmaster2000 vs grandmaster: 24 gxf6 (g7f6)
+chessmaster2000 vs grandmaster: 25 Kd2 (e1d2)
+chessmaster2000 vs grandmaster: 26 Rg8 (h8g8)
+chessmaster2000 vs grandmaster: 27 g3 (g2g3)
+chessmaster2000 vs grandmaster: 28 Ke7 (e8e7)
+chessmaster2000 vs grandmaster: 29 Rad1 (a1d1)
+chessmaster2000 vs grandmaster: 30 Be6 (c8e6)
+chessmaster2000 vs grandmaster: 31 Kc3 (d2c3)
+chessmaster2000 vs grandmaster: 32 Rg4 (g8g4)
+chessmaster2000 vs grandmaster: 33 Be2 (d3e2)
+chessmaster2000 vs grandmaster: 34 Re4 (g4e4)
+chessmaster2000 vs grandmaster: 35 Bd3 (e2d3)
+chessmaster2000 vs grandmaster: 36 Rg4 (e4g4)
+chessmaster2000 vs grandmaster: 37 Be2 (d3e2)
+chessmaster2000 vs grandmaster: 38 Re4 (g4e4)
+chessmaster2000 vs grandmaster: 39 Bd3 (e2d3)
+accent-chess-tournament-56d2295f2e2b
+accent-chess-tournament-3369296b4e2a
+chessmaster2000 vs grandmaster: 1/2-1/2 [tournament-data\acceptance\19885919d8714f989127c632790c4301]
+Playing grandmaster vs chess19xx (1/3 completed)
+1fa73f4dc8491ded42cc8ace8b00352a00be005732ad489edb737d18d17d2c08
+127.0.0.1:35358
+grandmaster: boot -> menu
+grandmaster: menu -> confirm
+grandmaster: confirm -> park
+grandmaster: park -> board
+grandmaster: board -> ready
+184196acaba0ae2ab32c1e1ef15e5abc7287c58e1463ab6118f2ff790a541816
+127.0.0.1:10072
+grandmaster vs chess19xx: 1 d4 (d2d4)
+grandmaster vs chess19xx: 2 Nf6 (g8f6)
+grandmaster vs chess19xx: 3 Bf4 (c1f4)
+grandmaster vs chess19xx: 4 Nd5 (f6d5)
+grandmaster vs chess19xx: 5 Bg5 (f4g5)
+grandmaster vs chess19xx: 6 f6 (f7f6)
+grandmaster vs chess19xx: 7 e4 (e2e4)
+grandmaster vs chess19xx: 8 fxg5 (f6g5)
+grandmaster vs chess19xx: 9 exd5 (e4d5)
+grandmaster vs chess19xx: 10 e6 (e7e6)
+grandmaster vs chess19xx: 11 dxe6 (d5e6)
+grandmaster vs chess19xx: 12 Bb4+ (f8b4)
+grandmaster vs chess19xx: 13 c3 (c2c3)
+grandmaster vs chess19xx: 14 Bd6 (b4d6)
+grandmaster vs chess19xx: 15 exd7+ (e6d7)
+grandmaster vs chess19xx: 16 Bxd7 (c8d7)
+grandmaster vs chess19xx: 17 Qh5+ (d1h5)
+grandmaster vs chess19xx: 18 g6 (g7g6)
+grandmaster vs chess19xx: 19 Qf3 (h5f3)
+grandmaster vs chess19xx: 20 Nc6 (b8c6)
+grandmaster vs chess19xx: 21 Bc4 (f1c4)
+grandmaster vs chess19xx: 22 Bf4 (d6f4)
+grandmaster vs chess19xx: 23 Qe2+ (f3e2)
+grandmaster vs chess19xx: 24 Qe7 (d8e7)
+grandmaster vs chess19xx: 25 g3 (g2g3)
+grandmaster vs chess19xx: 26 Bc1 (f4c1)
+grandmaster vs chess19xx: 27 b4 (b2b4)
+grandmaster vs chess19xx: 28 Nxb4 (c6b4)
+grandmaster vs chess19xx: 29 Qxe7+ (e2e7)
+grandmaster vs chess19xx: 30 Kxe7 (e8e7)
+grandmaster vs chess19xx: 31 cxb4 (c3b4)
+grandmaster vs chess19xx: 32 Bb2 (c1b2)
+grandmaster vs chess19xx: 33 Nf3 (g1f3)
+grandmaster vs chess19xx: 34 g4 (g5g4)
+grandmaster vs chess19xx: 35 O-O (e1g1)
+grandmaster vs chess19xx: 36 Bxa1 (b2a1)
+grandmaster vs chess19xx: 37 Re1+ (f1e1)
+grandmaster vs chess19xx: 38 Kd6 (e7d6)
+grandmaster vs chess19xx: 39 Nbd2 (b1d2)
+grandmaster vs chess19xx: 40 Bb2 (a1b2)
+grandmaster vs chess19xx: 41 Ne4+ (d2e4)
+grandmaster vs chess19xx: 42 Ke7 (d6e7)
+grandmaster vs chess19xx: 43 Nc5+ (e4c5)
+grandmaster vs chess19xx: 44 Kd6 (e7d6)
+grandmaster vs chess19xx: 45 Ne5 (f3e5)
+grandmaster vs chess19xx: 46 Be8 (d7e8)
+grandmaster vs chess19xx: 47 Nxg6 (e5g6)
+grandmaster vs chess19xx: 48 c6 (c7c6)
+grandmaster vs chess19xx: 49 Nxb7+ (c5b7)
+grandmaster vs chess19xx: 50 Kc7 (d6c7)
+grandmaster vs chess19xx: 51 Nxh8 (g6h8)
+grandmaster vs chess19xx: 52 Bd7 (e8d7)
+grandmaster vs chess19xx: 53 Re7 (e1e7)
+grandmaster vs chess19xx: 54 Rxh8 (a8h8)
+grandmaster vs chess19xx: 55 Be6 (c4e6)
+grandmaster vs chess19xx: 56 h5 (h7h5)
+grandmaster vs chess19xx: 57 Rxd7+ (e7d7)
+grandmaster vs chess19xx: 58 Kb6 (c7b6)
+grandmaster vs chess19xx: 59 Na5 (b7a5)
+grandmaster vs chess19xx: 60 Bc3 (b2c3)
+grandmaster vs chess19xx: 61 a3 (a2a3)
+grandmaster vs chess19xx: 62 Rb8 (h8b8)
+grandmaster vs chess19xx: 63 Rd6 (d7d6)
+grandmaster vs chess19xx: 64 Ba1 (c3a1)
+grandmaster vs chess19xx: 65 Rxc6+ (d6c6)
+grandmaster vs chess19xx: 66 Kb5 (b6b5)
+grandmaster vs chess19xx: 67 d5 (d4d5)
+grandmaster vs chess19xx: 68 Rf8 (b8f8)
+grandmaster vs chess19xx: 69 Rc7 (c6c7)
+grandmaster vs chess19xx: 70 Rf3 (f8f3)
+accent-chess-tournament-0dfa8b934e3a
+accent-chess-tournament-c2ce50ad69fa
+grandmaster vs chess19xx: FAILED: grandmaster: Emulator timed out; press New game to resynchronize; Unknown piece at d5 (distance 0.723);  [tournament-data\acceptance\d0ff7fc774c042fc8eeb41c57688c917]
+Playing grandmaster vs chessmaster2000 (1/3 completed)
+19592e70aacbdce7c49844367a9d1e7bb151572a3715623330e8ce972119ed3c
+127.0.0.1:31608
+grandmaster: boot -> menu
+grandmaster: menu -> confirm
+grandmaster: confirm -> park
+grandmaster: park -> board
+grandmaster: board -> ready
+ae814e83b607e75ec56db20f3ee78b2fdc468a4dab416dbb37c8085a800fa5ad
+127.0.0.1:31683
+chessmaster2000: boot -> playing
+chessmaster2000: playing -> confirm
+chessmaster2000: confirm -> reset
+chessmaster2000: reset -> board
+chessmaster2000: board -> ready
+grandmaster vs chessmaster2000: 1 d4 (d2d4)
+grandmaster vs chessmaster2000: 2 Nf6 (g8f6)
+grandmaster vs chessmaster2000: 3 Nf3 (g1f3)
+grandmaster vs chessmaster2000: 4 d5 (d7d5)
+grandmaster vs chessmaster2000: 5 c4 (c2c4)
+grandmaster vs chessmaster2000: 6 dxc4 (d5c4)
+grandmaster vs chessmaster2000: 7 Nc3 (b1c3)
+grandmaster vs chessmaster2000: 8 Nc6 (b8c6)
+grandmaster vs chessmaster2000: 9 e4 (e2e4)
+grandmaster vs chessmaster2000: 10 Be6 (c8e6)
+grandmaster vs chessmaster2000: 11 d5 (d4d5)
+grandmaster vs chessmaster2000: 12 Bd7 (e6d7)
+grandmaster vs chessmaster2000: 13 dxc6 (d5c6)
+grandmaster vs chessmaster2000: 14 Bxc6 (d7c6)
+grandmaster vs chessmaster2000: 15 Qc2 (d1c2)
+grandmaster vs chessmaster2000: 16 b5 (b7b5)
+grandmaster vs chessmaster2000: 17 Be3 (c1e3)
+grandmaster vs chessmaster2000: 18 e6 (e7e6)
+grandmaster vs chessmaster2000: 19 Rd1 (a1d1)
+grandmaster vs chessmaster2000: 20 Bd6 (f8d6)
+grandmaster vs chessmaster2000: 21 g3 (g2g3)
+grandmaster vs chessmaster2000: 22 O-O (e8g8)
+grandmaster vs chessmaster2000: 23 Be2 (f1e2)
+grandmaster vs chessmaster2000: 24 e5 (e6e5)
+grandmaster vs chessmaster2000: 25 Nxe5 (f3e5)
+grandmaster vs chessmaster2000: 26 Bxe4 (c6e4)
+grandmaster vs chessmaster2000: 27 Nxe4 (c3e4)
+grandmaster vs chessmaster2000: 28 Qe7 (d8e7)
+grandmaster vs chessmaster2000: 29 Nxf6+ (e4f6)
+grandmaster vs chessmaster2000: 30 Qxf6 (e7f6)
+grandmaster vs chessmaster2000: 31 Nc6 (e5c6)
+grandmaster vs chessmaster2000: 32 Bxg3 (d6g3)
+grandmaster vs chessmaster2000: 33 hxg3 (h2g3)
+grandmaster vs chessmaster2000: 34 Qg6 (f6g6)
+grandmaster vs chessmaster2000: 35 Ne7+ (c6e7)
+grandmaster vs chessmaster2000: 36 Kh8 (g8h8)
+grandmaster vs chessmaster2000: 37 Nxg6+ (e7g6)
+grandmaster vs chessmaster2000: 38 fxg6 (f7g6)
+grandmaster vs chessmaster2000: 39 Qxg6 (c2g6)
+grandmaster vs chessmaster2000: 40 h6 (h7h6)
+grandmaster vs chessmaster2000: 41 Bxh6 (e3h6)
+grandmaster vs chessmaster2000: 42 Rf7 (f8f7)
+accent-chess-tournament-846a14d8ede0
+accent-chess-tournament-a4f60782c074
+grandmaster vs chessmaster2000: FAILED: grandmaster: Emulator timed out; press New game to resynchronize; Unknown piece at d5 (distance 0.723);  [tournament-data\acceptance\ae77f9fcb62b4e6db52278396b60ae72]
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\woute\Code\Accent-Chess\src\emulation\tournament.py", line 308, in <module>
+    main()
+  File "C:\Users\woute\Code\Accent-Chess\src\emulation\tournament.py", line 240, in main
+    execute(args)
+  File "C:\Users\woute\Code\Accent-Chess\src\emulation\tournament.py", line 295, in execute
+    raise RuntimeError(f'Only {report["completed"]}/{args.count} matches completed; failed pairings remain pending')
+RuntimeError: Only 1/3 matches completed; failed pairings remain pending

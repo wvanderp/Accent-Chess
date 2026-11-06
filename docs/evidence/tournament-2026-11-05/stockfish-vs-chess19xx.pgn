@@ -1,0 +1,10 @@
+[Event "Accent Chess round robin"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "stockfish"]
+[Black "chess19xx"]
+[Result "1-0"]
+[Termination "CHECKMATE"]
+
+1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 c5 5. a3 Qa5 6. axb4 Qxa1 7. Nb5 cxd4 8. Nc7+ Kd7 9. Nxa8 Nc6 10. Nf3 Qa4 11. b5 Qb4+ 12. Bd2 Qxb2 13. Bd3 Nb4 14. O-O Nxd3 15. cxd3 Qxb5 16. Nxd4 Qxd3 17. Qa4+ Kd8 18. Qa5+ b6 19. Qxa7 Qxd2 20. Qc7+ Ke8 21. Qxc8+ Ke7 22. Nc6# 1-0

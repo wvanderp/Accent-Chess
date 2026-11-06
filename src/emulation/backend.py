@@ -14,6 +14,7 @@ from PIL import ImageGrab
 
 
 class Backend(Protocol):
+    def mouse_button(self, button: int, pressed: bool) -> None: ...
     def capture(self) -> bytes: ...
     def key(self, name: str, delay_ms: int = 12, window_title: str | None = None) -> None: ...
     def click(self, x: int, y: int) -> None: ...
@@ -21,6 +22,13 @@ class Backend(Protocol):
 
 
 class X11Backend:
+    def mouse_button(self, button: int, pressed: bool) -> None:
+        """Hold buttons across frame observations for vintage mouse scanners."""
+        if type(button) is not int or button not in (1, 3) or type(pressed) is not bool:
+            raise ValueError("Expected left/right button and boolean state")
+        subprocess.run(["xdotool", "mousedown" if pressed else "mouseup", str(button)],
+                       check=True, timeout=3)
+
     def move_pointer(self, x: int, y: int) -> None:
         if not (0 <= x < 640 and 0 <= y < 480):
             raise ValueError("Coordinates must be inside the 640x480 display")

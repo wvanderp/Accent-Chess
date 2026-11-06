@@ -1,0 +1,395 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 799B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim-bookworm
+#2 DONE 0.9s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 109B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 5.37kB done
+#4 DONE 0.0s
+
+#5 [1/9] FROM docker.io/library/python:3.12-slim-bookworm@sha256:da54eb86849fe19be7584d8b3f291fcf0c53c196760ab3d70dc6382f681ef9c0
+#5 resolve docker.io/library/python:3.12-slim-bookworm@sha256:da54eb86849fe19be7584d8b3f291fcf0c53c196760ab3d70dc6382f681ef9c0 0.1s done
+#5 DONE 0.1s
+
+#6 [2/9] RUN sed -i 's/Components: main/Components: main contrib/' /etc/apt/sources.list.d/debian.sources     && apt-get update && apt-get install -y --no-install-recommends     dosbox vice hatari xvfb xauth xdotool libxcb1     && rm -rf /var/lib/apt/lists/*
+#6 CACHED
+
+#7 [3/9] WORKDIR /app
+#7 CACHED
+
+#8 [4/9] COPY docker/requirements.txt /app/docker/requirements.txt
+#8 CACHED
+
+#9 [5/9] RUN pip install --no-cache-dir -r /app/docker/requirements.txt
+#9 CACHED
+
+#10 [6/9] COPY src/emulation /app/src/emulation
+#10 CACHED
+
+#11 [7/9] COPY src/games /app/src/games
+#11 DONE 0.1s
+
+#12 [8/9] COPY docker/dosbox.conf /app/docker/dosbox.conf
+#12 DONE 0.1s
+
+#13 [9/9] COPY docker/smoke.py /app/docker/smoke.py
+#13 DONE 0.1s
+
+#14 exporting to image
+#14 exporting layers
+#14 exporting layers 0.3s done
+#14 exporting manifest sha256:bc84f871b5278071dd1f9ad90af3ce1a701def02a4e908371ad9955c5464b4e4
+#14 exporting manifest sha256:bc84f871b5278071dd1f9ad90af3ce1a701def02a4e908371ad9955c5464b4e4 0.0s done
+#14 exporting config sha256:2b718addaad6c2436ca91d8c2ba47127e218c57e1cb3c6c0863f3babd785f2ea 0.0s done
+#14 exporting attestation manifest sha256:fd5e521c97bfa490cf173d6d33229bc973b8d790ab5c7fb96ae49d469f3d8761 0.0s done
+#14 exporting manifest list sha256:8a80abd9dfaff9dfc54167c8daef8f15fc1910b1f392f806fcb968bf68a9d56a
+#14 exporting manifest list sha256:8a80abd9dfaff9dfc54167c8daef8f15fc1910b1f392f806fcb968bf68a9d56a 0.0s done
+#14 naming to docker.io/library/accent-chess-runtime:latest done
+#14 unpacking to docker.io/library/accent-chess-runtime:latest 0.1s done
+#14 DONE 0.7s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/sj9q8hjs8lpc3wi900jan1mpp
+Playing stockfish vs chess19xx (0/6 completed)
+6c02ba25309d0e787d52941d2954844f2b960ce1cd1d4247f6994d757e67a488
+127.0.0.1:17762
+stockfish vs chess19xx: 1 e4 (e2e4)
+stockfish vs chess19xx: 2 e6 (e7e6)
+stockfish vs chess19xx: 3 d4 (d2d4)
+stockfish vs chess19xx: 4 d5 (d7d5)
+stockfish vs chess19xx: 5 Nc3 (b1c3)
+stockfish vs chess19xx: 6 Bb4 (f8b4)
+stockfish vs chess19xx: 7 e5 (e4e5)
+stockfish vs chess19xx: 8 c5 (c7c5)
+stockfish vs chess19xx: 9 a3 (a2a3)
+stockfish vs chess19xx: 10 Qa5 (d8a5)
+stockfish vs chess19xx: 11 axb4 (a3b4)
+stockfish vs chess19xx: 12 Qxa1 (a5a1)
+stockfish vs chess19xx: 13 Nb5 (c3b5)
+stockfish vs chess19xx: 14 cxd4 (c5d4)
+stockfish vs chess19xx: 15 Nc7+ (b5c7)
+stockfish vs chess19xx: 16 Kd7 (e8d7)
+stockfish vs chess19xx: 17 Nxa8 (c7a8)
+stockfish vs chess19xx: 18 Nc6 (b8c6)
+stockfish vs chess19xx: 19 Nf3 (g1f3)
+stockfish vs chess19xx: 20 Qa4 (a1a4)
+stockfish vs chess19xx: 21 b5 (b4b5)
+stockfish vs chess19xx: 22 Qb4+ (a4b4)
+stockfish vs chess19xx: 23 Bd2 (c1d2)
+stockfish vs chess19xx: 24 Qxb2 (b4b2)
+stockfish vs chess19xx: 25 Bd3 (f1d3)
+stockfish vs chess19xx: 26 Nb4 (c6b4)
+stockfish vs chess19xx: 27 O-O (e1g1)
+stockfish vs chess19xx: 28 Nxd3 (b4d3)
+stockfish vs chess19xx: 29 cxd3 (c2d3)
+stockfish vs chess19xx: 30 Qxb5 (b2b5)
+stockfish vs chess19xx: 31 Nxd4 (f3d4)
+stockfish vs chess19xx: 32 Qxd3 (b5d3)
+stockfish vs chess19xx: 33 Qa4+ (d1a4)
+stockfish vs chess19xx: 34 Kd8 (d7d8)
+stockfish vs chess19xx: 35 Qa5+ (a4a5)
+stockfish vs chess19xx: 36 b6 (b7b6)
+stockfish vs chess19xx: 37 Qxa7 (a5a7)
+stockfish vs chess19xx: 38 Qxd2 (d3d2)
+stockfish vs chess19xx: 39 Qc7+ (a7c7)
+stockfish vs chess19xx: 40 Ke8 (d8e8)
+stockfish vs chess19xx: 41 Qxc8+ (c7c8)
+stockfish vs chess19xx: 42 Ke7 (e8e7)
+stockfish vs chess19xx: 43 Nc6# (d4c6)
+accent-chess-tournament-eb884938a286
+stockfish vs chess19xx: 1-0 [tournament-data\acceptance\ca052d25a8044e4b885464134a15aafb]
+Playing stockfish vs chessmaster2000 (1/6 completed)
+2de8c031eed5a670836d647d9a98c33cad0b81979f49f211b05d10ac11dde7b9
+127.0.0.1:4496
+chessmaster2000: boot -> playing
+chessmaster2000: playing -> confirm
+chessmaster2000: confirm -> reset
+chessmaster2000: reset -> board
+chessmaster2000: board -> ready
+stockfish vs chessmaster2000: 1 e4 (e2e4)
+stockfish vs chessmaster2000: 2 e5 (e7e5)
+stockfish vs chessmaster2000: 3 Nf3 (g1f3)
+stockfish vs chessmaster2000: 4 Nc6 (b8c6)
+stockfish vs chessmaster2000: 5 Bb5 (f1b5)
+stockfish vs chessmaster2000: 6 a6 (a7a6)
+stockfish vs chessmaster2000: 7 Ba4 (b5a4)
+stockfish vs chessmaster2000: 8 Nf6 (g8f6)
+stockfish vs chessmaster2000: 9 O-O (e1g1)
+stockfish vs chessmaster2000: 10 Be7 (f8e7)
+stockfish vs chessmaster2000: 11 Re1 (f1e1)
+stockfish vs chessmaster2000: 12 b5 (b7b5)
+stockfish vs chessmaster2000: 13 Bb3 (a4b3)
+stockfish vs chessmaster2000: 14 d6 (d7d6)
+stockfish vs chessmaster2000: 15 c3 (c2c3)
+stockfish vs chessmaster2000: 16 O-O (e8g8)
+stockfish vs chessmaster2000: 17 h3 (h2h3)
+stockfish vs chessmaster2000: 18 Na5 (c6a5)
+stockfish vs chessmaster2000: 19 Bc2 (b3c2)
+stockfish vs chessmaster2000: 20 c5 (c7c5)
+stockfish vs chessmaster2000: 21 d4 (d2d4)
+stockfish vs chessmaster2000: 22 cxd4 (c5d4)
+stockfish vs chessmaster2000: 23 cxd4 (c3d4)
+stockfish vs chessmaster2000: 24 exd4 (e5d4)
+stockfish vs chessmaster2000: 25 Nxd4 (f3d4)
+stockfish vs chessmaster2000: 26 d5 (d6d5)
+stockfish vs chessmaster2000: 27 e5 (e4e5)
+stockfish vs chessmaster2000: 28 Nd7 (f6d7)
+stockfish vs chessmaster2000: 29 Nc3 (b1c3)
+stockfish vs chessmaster2000: 30 Bb7 (c8b7)
+stockfish vs chessmaster2000: 31 Nf5 (d4f5)
+stockfish vs chessmaster2000: 32 Bb4 (e7b4)
+stockfish vs chessmaster2000: 33 Qh5 (d1h5)
+stockfish vs chessmaster2000: 34 g6 (g7g6)
+stockfish vs chessmaster2000: 35 Qh6 (h5h6)
+stockfish vs chessmaster2000: 36 gxf5 (g6f5)
+stockfish vs chessmaster2000: 37 Bxf5 (c2f5)
+stockfish vs chessmaster2000: 38 Re8 (f8e8)
+stockfish vs chessmaster2000: 39 Bxh7+ (f5h7)
+stockfish vs chessmaster2000: 40 Kh8 (g8h8)
+stockfish vs chessmaster2000: 41 Bg6+ (h7g6)
+stockfish vs chessmaster2000: 42 Kg8 (h8g8)
+stockfish vs chessmaster2000: 43 Qh7+ (h6h7)
+stockfish vs chessmaster2000: 44 Kf8 (g8f8)
+stockfish vs chessmaster2000: 45 Qxf7# (h7f7)
+accent-chess-tournament-7a5478f2e2b2
+stockfish vs chessmaster2000: 1-0 [tournament-data\acceptance\1489fd28b6a54b4d897e6055f0b6184e]
+Playing stockfish vs grandmaster (2/6 completed)
+1a414e45bd928b2dd3437bda12993ab0226a049d6589c36e73447a1e1307887c
+127.0.0.1:30674
+grandmaster: boot -> menu
+grandmaster: menu -> confirm
+grandmaster: confirm -> park
+grandmaster: park -> board
+grandmaster: board -> ready
+stockfish vs grandmaster: 1 e4 (e2e4)
+stockfish vs grandmaster: 2 e5 (e7e5)
+stockfish vs grandmaster: 3 Nf3 (g1f3)
+stockfish vs grandmaster: 4 Nc6 (b8c6)
+stockfish vs grandmaster: 5 Bb5 (f1b5)
+stockfish vs grandmaster: 6 Nf6 (g8f6)
+stockfish vs grandmaster: 7 O-O (e1g1)
+stockfish vs grandmaster: 8 Nxe4 (f6e4)
+stockfish vs grandmaster: 9 Re1 (f1e1)
+stockfish vs grandmaster: 10 a6 (a7a6)
+stockfish vs grandmaster: 11 Bxc6 (b5c6)
+stockfish vs grandmaster: 12 bxc6 (b7c6)
+stockfish vs grandmaster: 13 Nxe5 (f3e5)
+stockfish vs grandmaster: 14 Qh4 (d8h4)
+stockfish vs grandmaster: 15 Qf3 (d1f3)
+stockfish vs grandmaster: 16 f5 (f7f5)
+stockfish vs grandmaster: 17 Qxf5 (f3f5)
+stockfish vs grandmaster: 18 Qxf2+ (h4f2)
+stockfish vs grandmaster: 19 Qxf2 (f5f2)
+stockfish vs grandmaster: 20 Nxf2 (e4f2)
+stockfish vs grandmaster: 21 Ng6+ (e5g6)
+stockfish vs grandmaster: 22 Kf7 (e8f7)
+stockfish vs grandmaster: 23 Nxh8+ (g6h8)
+stockfish vs grandmaster: 24 Kg8 (f7g8)
+stockfish vs grandmaster: 25 Kxf2 (g1f2)
+stockfish vs grandmaster: 26 Kxh8 (g8h8)
+stockfish vs grandmaster: 27 d3 (d2d3)
+stockfish vs grandmaster: 28 Bc5+ (f8c5)
+stockfish vs grandmaster: 29 Be3 (c1e3)
+stockfish vs grandmaster: 30 Bb4 (c5b4)
+stockfish vs grandmaster: 31 Nd2 (b1d2)
+stockfish vs grandmaster: 32 Bb7 (c8b7)
+stockfish vs grandmaster: 33 Kg1 (f2g1)
+stockfish vs grandmaster: 34 Rf8 (a8f8)
+stockfish vs grandmaster: 35 c3 (c2c3)
+stockfish vs grandmaster: 36 Be7 (b4e7)
+stockfish vs grandmaster: 37 Bd4 (e3d4)
+stockfish vs grandmaster: 38 Bh4 (e7h4)
+stockfish vs grandmaster: 39 Rf1 (e1f1)
+stockfish vs grandmaster: 40 Re8 (f8e8)
+stockfish vs grandmaster: 41 Nf3 (d2f3)
+stockfish vs grandmaster: 42 Be7 (h4e7)
+stockfish vs grandmaster: 43 Rae1 (a1e1)
+stockfish vs grandmaster: 44 Kg8 (h8g8)
+stockfish vs grandmaster: 45 Nh4 (f3h4)
+stockfish vs grandmaster: 46 c5 (c6c5)
+stockfish vs grandmaster: 47 Nf5 (h4f5)
+stockfish vs grandmaster: 48 cxd4 (c5d4)
+stockfish vs grandmaster: 49 Nxe7+ (f5e7)
+accent-chess-tournament-8a37c168ddf9
+stockfish vs grandmaster: 1-0 [tournament-data\acceptance\af21e4fd8d2b45219bbbbf2be6bd4c11]
+Playing chessmaster2000 vs stockfish (3/6 completed)
+3e5751b1fec58b9884db5df3c7d5470d5e878b9c8592d71f67e5f9a5a89dc90a
+127.0.0.1:27973
+chessmaster2000: boot -> playing
+chessmaster2000: playing -> confirm
+chessmaster2000: confirm -> reset
+chessmaster2000: reset -> board
+chessmaster2000: board -> ready
+chessmaster2000 vs stockfish: 1 e4 (e2e4)
+chessmaster2000 vs stockfish: 2 e5 (e7e5)
+chessmaster2000 vs stockfish: 3 Nf3 (g1f3)
+chessmaster2000 vs stockfish: 4 Nf6 (g8f6)
+chessmaster2000 vs stockfish: 5 Nxe5 (f3e5)
+chessmaster2000 vs stockfish: 6 d6 (d7d6)
+chessmaster2000 vs stockfish: 7 Nf3 (e5f3)
+chessmaster2000 vs stockfish: 8 Nxe4 (f6e4)
+chessmaster2000 vs stockfish: 9 d4 (d2d4)
+chessmaster2000 vs stockfish: 10 Be7 (f8e7)
+chessmaster2000 vs stockfish: 11 Be3 (c1e3)
+chessmaster2000 vs stockfish: 12 d5 (d6d5)
+chessmaster2000 vs stockfish: 13 Bd3 (f1d3)
+chessmaster2000 vs stockfish: 14 O-O (e8g8)
+chessmaster2000 vs stockfish: 15 O-O (e1g1)
+chessmaster2000 vs stockfish: 16 Nc6 (b8c6)
+chessmaster2000 vs stockfish: 17 Re1 (f1e1)
+chessmaster2000 vs stockfish: 18 Bg4 (c8g4)
+chessmaster2000 vs stockfish: 19 h3 (h2h3)
+chessmaster2000 vs stockfish: 20 Bh5 (g4h5)
+chessmaster2000 vs stockfish: 21 Nbd2 (b1d2)
+chessmaster2000 vs stockfish: 22 f5 (f7f5)
+chessmaster2000 vs stockfish: 23 Qe2 (d1e2)
+chessmaster2000 vs stockfish: 24 f4 (f5f4)
+chessmaster2000 vs stockfish: 25 Nxe4 (d2e4)
+chessmaster2000 vs stockfish: 26 dxe4 (d5e4)
+chessmaster2000 vs stockfish: 27 Bc4+ (d3c4)
+chessmaster2000 vs stockfish: 28 Kh8 (g8h8)
+chessmaster2000 vs stockfish: 29 g4 (g2g4)
+chessmaster2000 vs stockfish: 30 fxg3 (f4g3)
+chessmaster2000 vs stockfish: 31 d5 (d4d5)
+chessmaster2000 vs stockfish: 32 Bxf3 (h5f3)
+chessmaster2000 vs stockfish: 33 Qd2 (e2d2)
+chessmaster2000 vs stockfish: 34 gxf2+ (g3f2)
+chessmaster2000 vs stockfish: 35 Bxf2 (e3f2)
+chessmaster2000 vs stockfish: 36 Qd6 (d8d6)
+chessmaster2000 vs stockfish: 37 Bb3 (c4b3)
+chessmaster2000 vs stockfish: 38 Qg6+ (d6g6)
+chessmaster2000 vs stockfish: 39 Bg3 (f2g3)
+chessmaster2000 vs stockfish: 40 Qxg3+ (g6g3)
+chessmaster2000 vs stockfish: 41 Kf1 (g1f1)
+chessmaster2000 vs stockfish: 42 Bd1+ (f3d1)
+chessmaster2000 vs stockfish: 43 Qf4 (d2f4)
+chessmaster2000 vs stockfish: 44 Rxf4# (f8f4)
+accent-chess-tournament-6293b0e7e877
+chessmaster2000 vs stockfish: 0-1 [tournament-data\acceptance\663630ec233c4db68f243e5ed173cbf0]
+Playing grandmaster vs stockfish (4/6 completed)
+051d4798efde60fcaea0b6df440e0fbe0bbff0ebd7571c3a91e0d9621c085942
+127.0.0.1:48848
+grandmaster: boot -> menu
+grandmaster: menu -> confirm
+grandmaster: confirm -> park
+grandmaster: park -> board
+grandmaster: board -> ready
+grandmaster vs stockfish: 1 e4 (e2e4)
+grandmaster vs stockfish: 2 e5 (e7e5)
+grandmaster vs stockfish: 3 d4 (d2d4)
+grandmaster vs stockfish: 4 exd4 (e5d4)
+grandmaster vs stockfish: 5 Qxd4 (d1d4)
+grandmaster vs stockfish: 6 Nc6 (b8c6)
+grandmaster vs stockfish: 7 Qd1 (d4d1)
+grandmaster vs stockfish: 8 Nf6 (g8f6)
+grandmaster vs stockfish: 9 Nc3 (b1c3)
+grandmaster vs stockfish: 10 Bb4 (f8b4)
+grandmaster vs stockfish: 11 Bd2 (c1d2)
+grandmaster vs stockfish: 12 O-O (e8g8)
+grandmaster vs stockfish: 13 Nf3 (g1f3)
+grandmaster vs stockfish: 14 Bxc3 (b4c3)
+grandmaster vs stockfish: 15 Bxc3 (d2c3)
+grandmaster vs stockfish: 16 Nxe4 (f6e4)
+grandmaster vs stockfish: 17 Be5 (c3e5)
+grandmaster vs stockfish: 18 Re8 (f8e8)
+grandmaster vs stockfish: 19 Bd3 (f1d3)
+grandmaster vs stockfish: 20 Nxe5 (c6e5)
+grandmaster vs stockfish: 21 Nxe5 (f3e5)
+grandmaster vs stockfish: 22 Rxe5 (e8e5)
+grandmaster vs stockfish: 23 O-O (e1g1)
+grandmaster vs stockfish: 24 d5 (d7d5)
+grandmaster vs stockfish: 25 f3 (f2f3)
+grandmaster vs stockfish: 26 Nc5 (e4c5)
+grandmaster vs stockfish: 27 f4 (f3f4)
+grandmaster vs stockfish: 28 Nxd3 (c5d3)
+grandmaster vs stockfish: 29 fxe5 (f4e5)
+grandmaster vs stockfish: 30 Nxe5 (d3e5)
+grandmaster vs stockfish: 31 Re1 (f1e1)
+grandmaster vs stockfish: 32 f6 (f7f6)
+grandmaster vs stockfish: 33 a3 (a2a3)
+grandmaster vs stockfish: 34 Be6 (c8e6)
+grandmaster vs stockfish: 35 Re3 (e1e3)
+grandmaster vs stockfish: 36 Qd6 (d8d6)
+grandmaster vs stockfish: 37 Rc1 (a1c1)
+grandmaster vs stockfish: 38 Ng4 (e5g4)
+grandmaster vs stockfish: 39 Qd2 (d1d2)
+grandmaster vs stockfish: 40 Qxh2+ (d6h2)
+grandmaster vs stockfish: 41 Kf1 (g1f1)
+grandmaster vs stockfish: 42 Qf4+ (h2f4)
+accent-chess-tournament-80930deb8171
+grandmaster vs stockfish: 0-1 [tournament-data\acceptance\815084d490424deb931ba7da73de4695]
+Playing chessmaster2000 vs chess19xx (5/6 completed)
+688b50828a9b3068132ba00fb8d57cd1019e2e2572f83790288cff6c4fd1a919
+127.0.0.1:53335
+chessmaster2000: boot -> playing
+chessmaster2000: playing -> confirm
+chessmaster2000: confirm -> reset
+chessmaster2000: reset -> board
+chessmaster2000: board -> ready
+fe9440db4a764f45c665f5894690d30d6cf11e32b212ebad63887455673a25ef
+127.0.0.1:56435
+chessmaster2000 vs chess19xx: 1 c4 (c2c4)
+chessmaster2000 vs chess19xx: 2 e5 (e7e5)
+chessmaster2000 vs chess19xx: 3 e3 (e2e3)
+chessmaster2000 vs chess19xx: 4 Nc6 (b8c6)
+chessmaster2000 vs chess19xx: 5 e4 (e3e4)
+chessmaster2000 vs chess19xx: 6 Bc5 (f8c5)
+chessmaster2000 vs chess19xx: 7 d3 (d2d3)
+chessmaster2000 vs chess19xx: 8 Nf6 (g8f6)
+chessmaster2000 vs chess19xx: 9 Nc3 (b1c3)
+chessmaster2000 vs chess19xx: 10 O-O (e8g8)
+chessmaster2000 vs chess19xx: 11 Nf3 (g1f3)
+chessmaster2000 vs chess19xx: 12 Ng4 (f6g4)
+chessmaster2000 vs chess19xx: 13 Nd4 (f3d4)
+chessmaster2000 vs chess19xx: 14 Nxf2 (g4f2)
+chessmaster2000 vs chess19xx: 15 Kxf2 (e1f2)
+chessmaster2000 vs chess19xx: 16 Qf6+ (d8f6)
+chessmaster2000 vs chess19xx: 17 Bf4 (c1f4)
+chessmaster2000 vs chess19xx: 18 Bxd4+ (c5d4)
+chessmaster2000 vs chess19xx: 19 Ke1 (f2e1)
+chessmaster2000 vs chess19xx: 20 Qxf4 (f6f4)
+chessmaster2000 vs chess19xx: 21 Ne2 (c3e2)
+chessmaster2000 vs chess19xx: 22 Bf2# (d4f2)
+accent-chess-tournament-2ca39066eac5
+accent-chess-tournament-5807c99b25cc
+chessmaster2000 vs chess19xx: 0-1 [tournament-data\acceptance\214995fd29154512a85f893166735707]
+Completed 6 different matches in one invocation: tournament-data\acceptance\run-76eef06e7d3d4ecfb10529458dd34796.json
+[
+  {
+    "engine": "stockfish",
+    "played": 5,
+    "points": 5.0,
+    "wins": 5
+  },
+  {
+    "engine": "chess19xx",
+    "played": 2,
+    "points": 1.0,
+    "wins": 1
+  },
+  {
+    "engine": "battlechess",
+    "played": 0,
+    "points": 0.0,
+    "wins": 0
+  },
+  {
+    "engine": "chessmaster2000",
+    "played": 3,
+    "points": 0.0,
+    "wins": 0
+  },
+  {
+    "engine": "grandmaster",
+    "played": 2,
+    "points": 0.0,
+    "wins": 0
+  }
+]

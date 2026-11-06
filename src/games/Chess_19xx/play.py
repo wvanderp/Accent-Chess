@@ -14,6 +14,7 @@ import numpy as np
 from PIL import Image
 
 from emulation.client import RuntimeClient
+from .text import prefix_complete
 
 PROMPT = (428, 323, 478, 335)
 
@@ -25,6 +26,8 @@ def prompt_mask(frame: Image.Image) -> np.ndarray:
 
 class Connector:
     human_color = chess.WHITE
+    requires_board_before_reset = True
+    move_timeout = 180
 
     def __init__(self, client: RuntimeClient) -> None:
         self.client = client
@@ -36,6 +39,9 @@ class Connector:
         self.unchanged = 0
         self.retries = 0
         self.observed: np.ndarray | None = None
+        self.submit_clock: bytes | None = None
+        self.typed_prefix = ''
+        self.previous_prefix = ''
         with Image.open(Path(__file__).with_name("recognition.png")) as image:
             self.reference = image.convert("RGB")
 
@@ -47,6 +53,8 @@ class Connector:
         self.before = None
         self.awaiting_character = False
         self.current_key = None
+        self.submit_clock = None
+        self.typed_prefix = self.previous_prefix = ''
         self.key("F1")
 
     def advance_reset(self, frame: Image.Image, placement: str | None) -> bool:
@@ -62,40 +70,55 @@ class Connector:
         return True
 
     def move(self, move: chess.Move) -> None:
-        if move.promotion:
-            raise ValueError("Chess 19xx promotion input has not yet been verified")
+        if move.promotion and move.promotion != chess.QUEEN:
+            raise ValueError("Chess 19xx underpromotion input has not yet been verified")
+        # Queen promotion uses the normal coordinate request. PlaySession must
+        # observe that exact promoted queen (and any legal reply); sending the
+        # coordinates alone never acknowledges or completes a promotion.
         text = chess.square_name(move.from_square) + "-" + chess.square_name(move.to_square)
         self.keys_pending = ["minus" if key == "-" else key for key in text] + ["Return"]
         self.before = None
         self.awaiting_character = False
         self.confirmations = self.unchanged = self.retries = 0
         self.observed = None
+        self.submit_clock = None
+        self.typed_prefix = self.previous_prefix = ''
+
+    def prefix_visible(self, frame: Image.Image, prefix: str) -> bool:
+        return prefix_complete(frame, len(prefix))
+
+    def diagnostics(self) -> str:
+        return f'expected prefix={self.typed_prefix!r}, last key={self.current_key!r}, retries={self.retries}'
 
     def advance(self, frame: Image.Image) -> None:
         if not self.keys_pending:
+            if self.current_key == 'Return' and self.before is not None:
+                current = prompt_mask(frame)
+                clock = self.clock_samples(frame)[0]
+                # A retained full coordinate plus an advancing HUMAN clock
+                # proves Return was missed. During engine search that clock
+                # stops; never interrupt thinking based on elapsed time.
+                if (np.any(current) and np.array_equal(current, self.before)
+                        and self.submit_clock is not None and clock != self.submit_clock
+                        and self.retries < 2):
+                    self.key('Return')
+                    self.retries += 1
+                self.submit_clock = clock
             return
         current = prompt_mask(frame)
         if self.awaiting_character:
-            assert self.before is not None
-            # Each coordinate character adds text pixels. The game's input
-            # routine can reposition the prefix, so pixel-for-pixel prefix
-            # equality incorrectly stalled after A2-A in the live Tk test.
-            # An unchanged prompt means a missed key: wait for the session's
-            # deadline, rather than risk sending the remainder out of order.
-            if np.count_nonzero(current) - np.count_nonzero(self.before) < 2:
+            if not self.prefix_visible(frame, self.typed_prefix):
                 self.confirmations = 0
-                if np.array_equal(current, self.before):
+                if self.prefix_visible(frame, self.previous_prefix):
                     self.unchanged += 1
-                    # A scan may still miss a physical key under host load.
-                    # Retry only while the visible prefix remains unchanged,
-                    # with a bound to avoid an unbounded stream of input.
+                    # The complete prior prefix proves the last key is absent.
+                    # Cursor/redraw ink growth cannot acknowledge another key.
                     if self.unchanged >= 4 and self.retries < 2 and self.current_key is not None:
                         self.key(self.current_key)
                         self.retries += 1
                         self.unchanged = 0
                 return
-            self.confirmations = self.confirmations + 1 if self.observed is not None and np.array_equal(current, self.observed) else 1
-            self.observed = current
+            self.confirmations += 1
             if self.confirmations < 2:
                 return
         elif np.any(current):
@@ -104,9 +127,14 @@ class Connector:
         name = self.keys_pending.pop(0)
         self.key(name)
         self.current_key = name
+        if name != 'Return':
+            self.previous_prefix = self.typed_prefix
+            self.typed_prefix += '-' if name == 'minus' else name.upper()
         self.confirmations = self.unchanged = self.retries = 0
         self.observed = None
         self.awaiting_character = name != "Return"
+        if name == 'Return':
+            self.submit_clock = self.clock_samples(frame)[0]
 
     def clock_samples(self, frame: Image.Image) -> tuple[bytes, bytes]:
         """Isolate white/black clock digits, excluding names and move text.

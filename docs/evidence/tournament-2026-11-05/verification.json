@@ -1,0 +1,90 @@
+{
+  "command": "python -m emulation.tournament run --count 6 --data tournament-data/acceptance",
+  "run_id": "76eef06e7d3d4ecfb10529458dd34796",
+  "started": "2026-11-05T16:03:22.814440+00:00",
+  "finished": "2026-11-05T16:26:23.874522+00:00",
+  "completed": 6,
+  "failed_attempts": 0,
+  "verification": "Legal move replay, event FENs, PGN results, terminal boards or explicit resignation dialogs",
+  "matches": [
+    {
+      "white": "chessmaster2000",
+      "black": "chess19xx",
+      "attempt": "214995fd29154512a85f893166735707",
+      "result": "0-1",
+      "termination": "CHECKMATE",
+      "plies": 22,
+      "pgn": "chessmaster2000-vs-chess19xx.pgn",
+      "pgn_sha256": "e2f9e10ca7c42ed828434481e137aab96ebdcb11d09f4a162f742c832fb0f38f",
+      "final_frames": [
+        "chessmaster2000-vs-chess19xx-chess19xx-final.png",
+        "chessmaster2000-vs-chess19xx-chessmaster2000-final.png"
+      ]
+    },
+    {
+      "white": "grandmaster",
+      "black": "stockfish",
+      "attempt": "815084d490424deb931ba7da73de4695",
+      "result": "0-1",
+      "termination": "resignation",
+      "plies": 42,
+      "pgn": "grandmaster-vs-stockfish.pgn",
+      "pgn_sha256": "a763ba454fdcfab73fac9df8a82e8a3e18bb3de0e7c37472c40a490ec92a29da",
+      "final_frames": [
+        "grandmaster-vs-stockfish-grandmaster-final.png"
+      ]
+    },
+    {
+      "white": "chessmaster2000",
+      "black": "stockfish",
+      "attempt": "663630ec233c4db68f243e5ed173cbf0",
+      "result": "0-1",
+      "termination": "CHECKMATE",
+      "plies": 44,
+      "pgn": "chessmaster2000-vs-stockfish.pgn",
+      "pgn_sha256": "b49c4f12c3d555bb586ad18879edc5156063f0697467e333458f727ab7899cbd",
+      "final_frames": [
+        "chessmaster2000-vs-stockfish-chessmaster2000-final.png"
+      ]
+    },
+    {
+      "white": "stockfish",
+      "black": "grandmaster",
+      "attempt": "af21e4fd8d2b45219bbbbf2be6bd4c11",
+      "result": "1-0",
+      "termination": "resignation",
+      "plies": 49,
+      "pgn": "stockfish-vs-grandmaster.pgn",
+      "pgn_sha256": "ce51004e2828fc4a34059a69212e085b96e91642888c52269b415313eeb00782",
+      "final_frames": [
+        "stockfish-vs-grandmaster-grandmaster-final.png"
+      ]
+    },
+    {
+      "white": "stockfish",
+      "black": "chess19xx",
+      "attempt": "ca052d25a8044e4b885464134a15aafb",
+      "result": "1-0",
+      "termination": "CHECKMATE",
+      "plies": 43,
+      "pgn": "stockfish-vs-chess19xx.pgn",
+      "pgn_sha256": "d6a951e49e2c5363f4ea424d177aeefe9848e8d4177431ada8551ade8ae908d2",
+      "final_frames": [
+        "stockfish-vs-chess19xx-chess19xx-final.png"
+      ]
+    },
+    {
+      "white": "stockfish",
+      "black": "chessmaster2000",
+      "attempt": "1489fd28b6a54b4d897e6055f0b6184e",
+      "result": "1-0",
+      "termination": "CHECKMATE",
+      "plies": 45,
+      "pgn": "stockfish-vs-chessmaster2000.pgn",
+      "pgn_sha256": "5715e29ebe25f32ed83fb2d8c6d8cfb9cb5be581ff7dc77ffce6612b6f37865e",
+      "final_frames": [
+        "stockfish-vs-chessmaster2000-chessmaster2000-final.png"
+      ]
+    }
+  ]
+}

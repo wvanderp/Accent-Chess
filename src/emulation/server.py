@@ -93,6 +93,9 @@ def make_server(session: Session, host: str, port: int) -> ThreadingHTTPServer:
                 elif self.path == "/v1/click":
                     with session.lock:
                         session.backend.click(int(data["x"]), int(data["y"]))
+                elif self.path == "/v1/mouse-button":
+                    with session.lock:
+                        session.backend.mouse_button(data["button"], data["pressed"])
                 elif self.path == "/v1/pointer":
                     with session.lock:
                         session.backend.move_pointer(int(data["x"]), int(data["y"]))

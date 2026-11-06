@@ -20,7 +20,7 @@ from .control import DockerControl
 from .play import PlaySession, create_connector, supports_play
 from .settings import load_stockfish_path, save_stockfish_path
 from games.catalog import GAMES
-from recognition.runtime import FrameRecorder, RuntimeRecognizer
+from recognition.runtime import FrameRecorder, RuntimeRecognizer, MODULES
 
 
 def main() -> None:
@@ -306,7 +306,7 @@ def main() -> None:
                     assert configuration is not None
                     game, enabled, debug = configuration
                     recorder = FrameRecorder(args.debug_frames or Path("debug-frames"), game) if enabled and debug else None
-                    recognizer = RuntimeRecognizer(game, client, recorder) if enabled else None
+                    recognizer = RuntimeRecognizer(game, client, recorder) if enabled and game in MODULES else None
                     if reset_session:
                         session = None
                         analysis.invalidate()

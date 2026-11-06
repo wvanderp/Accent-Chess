@@ -16,6 +16,14 @@ from PIL import Image
 from .client import RuntimeClient
 
 
+class GameResigned(Exception):
+    """A verified game UI explicitly reports the computer's resignation."""
+
+    def __init__(self, color: chess.Color) -> None:
+        self.color = color
+        super().__init__(f'{chess.COLOR_NAMES[color]} resigned')
+
+
 class PlayConnector(Protocol):
     human_color: chess.Color
 
@@ -32,6 +40,13 @@ PLAY_MODULES = {"grandmaster": "games.Grandmaster_Chess.play",
 
 def supports_play(game: str) -> bool:
     return game in PLAY_MODULES
+
+
+def supports_color(game: str, color: chess.Color) -> bool:
+    if not supports_play(game):
+        return False
+    connector = import_module(PLAY_MODULES[game]).Connector
+    return color in getattr(connector, "computer_colors", (chess.BLACK,))
 
 
 def create_connector(game: str, client: RuntimeClient) -> PlayConnector:
@@ -64,6 +79,7 @@ class PlaySession:
         self.message = "Waiting for a confirmed board and an active clock"
         self.clock_samples: tuple[bytes, bytes] | None = None
         self.attach_placement: str | None = None
+        self.resigned: chess.Color | None = None
 
     def invalidate(self, reason: str) -> None:
         self.position_confirmed = False
@@ -75,6 +91,7 @@ class PlaySession:
         self.ready = False
         self.deadline = 0.0
         self.message = reason
+        self.resigned = None
 
     def new_game(self) -> None:
         self.invalidate("Resetting emulator; waiting for the starting board")
@@ -111,6 +128,8 @@ class PlaySession:
     def observe(self, frame: Image.Image, placement: str | None) -> None:
         self.ready = False
         self.position_confirmed = False
+        if self.resigned is not None:
+            return
         if self.deadline and monotonic() > self.deadline:
             self.invalidate("Emulator timed out; press New game to resynchronize")
             return
@@ -151,7 +170,14 @@ class PlaySession:
                 return
             self.board = candidate
             self.message = "Attached using active clock; historical special-move rights unknown"
-        self.connector.advance(frame)
+        try:
+            self.connector.advance(frame)
+        except GameResigned as resignation:
+            self.resigned = resignation.color
+            self.deadline = 0.0
+            result = '0-1' if resignation.color == chess.WHITE else '1-0'
+            self.message = f'Game over: {result} ({chess.COLOR_NAMES[resignation.color]} resigned)'
+            return
         if placement is None:
             return
         if self.pending is not None:

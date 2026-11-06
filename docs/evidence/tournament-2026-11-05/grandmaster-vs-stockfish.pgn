@@ -1,0 +1,10 @@
+[Event "Accent Chess round robin"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "grandmaster"]
+[Black "stockfish"]
+[Result "0-1"]
+[Termination "resignation"]
+
+1. e4 e5 2. d4 exd4 3. Qxd4 Nc6 4. Qd1 Nf6 5. Nc3 Bb4 6. Bd2 O-O 7. Nf3 Bxc3 8. Bxc3 Nxe4 9. Be5 Re8 10. Bd3 Nxe5 11. Nxe5 Rxe5 12. O-O d5 13. f3 Nc5 14. f4 Nxd3 15. fxe5 Nxe5 16. Re1 f6 17. a3 Be6 18. Re3 Qd6 19. Rc1 Ng4 20. Qd2 Qxh2+ 21. Kf1 Qf4+ 0-1

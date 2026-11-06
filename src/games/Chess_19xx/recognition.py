@@ -25,4 +25,12 @@ PROFILE = Profile("chess19xx", Path(__file__).with_name("recognition.png"),
                   template_shift=2, fill_scanlines=True,
                   # A moved king has a distinct resampled outline at this pixel phase.
                   extra_templates=((Path(__file__).with_name("recognition-king-a4.png"),
-                                    "a4", chess.KING),))
+                                    "a4", chess.KING),
+                                   # The live D8-F6 reply confirmed this queen;
+                                   # its resampled crown resembled the rook template.
+                                   (Path(__file__).with_name("recognition-queen-f6.png"),
+                                    "f6", chess.QUEEN),
+                                   # The displayed E5-F5 king reply to Nd7+
+                                   # lost its crown at this GTK sampling phase.
+                                   (Path(__file__).with_name("recognition-king-f5.png"),
+                                    "f5", chess.KING)))

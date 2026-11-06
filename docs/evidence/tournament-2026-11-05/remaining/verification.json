@@ -1,0 +1,57 @@
+{
+  "completed": 3,
+  "run_ids": [
+    "bea9211c13f843f085d6871f8940fa92",
+    "cae80d6c61964985944b48c259ca2169",
+    "cb83b11266554b6686caa9f204a88533"
+  ],
+  "execution": "Completed matches retained across batches and connector fixes; source run manifests record failures, which are unscored.",
+  "verification": "Legal move replay, event FENs, PGN results, terminal boards or explicit resignation dialogs",
+  "matches": [
+    {
+      "white": "grandmaster",
+      "black": "chess19xx",
+      "attempt": "cef0e9ab970e48679e09bac4236f2b10",
+      "run_id": "cb83b11266554b6686caa9f204a88533",
+      "result": "1-0",
+      "termination": "CHECKMATE",
+      "plies": 107,
+      "pgn": "grandmaster-vs-chess19xx.pgn",
+      "pgn_sha256": "6477b8f46bc3e73749e638588b1b56f6ebaa7da816cb89e49f1f54640f6618ef",
+      "final_frames": [
+        "grandmaster-vs-chess19xx-chess19xx-final.png",
+        "grandmaster-vs-chess19xx-grandmaster-final.png"
+      ]
+    },
+    {
+      "white": "grandmaster",
+      "black": "chessmaster2000",
+      "attempt": "4a37a06fd30f45028eb703137a3991a8",
+      "run_id": "cae80d6c61964985944b48c259ca2169",
+      "result": "1/2-1/2",
+      "termination": "THREEFOLD_REPETITION",
+      "plies": 74,
+      "pgn": "grandmaster-vs-chessmaster2000.pgn",
+      "pgn_sha256": "6ebcdf2bd267b937308292e3426af7e2abfbac3a617eb4c6b9d97f664f1e8244",
+      "final_frames": [
+        "grandmaster-vs-chessmaster2000-chessmaster2000-final.png",
+        "grandmaster-vs-chessmaster2000-grandmaster-final.png"
+      ]
+    },
+    {
+      "white": "chessmaster2000",
+      "black": "grandmaster",
+      "attempt": "19885919d8714f989127c632790c4301",
+      "run_id": "bea9211c13f843f085d6871f8940fa92",
+      "result": "1/2-1/2",
+      "termination": "THREEFOLD_REPETITION",
+      "plies": 39,
+      "pgn": "chessmaster2000-vs-grandmaster.pgn",
+      "pgn_sha256": "de5addfb1358479b802f9de36c1b64325efbd23a5b0dc21b84f5d62f0355a3f3",
+      "final_frames": [
+        "chessmaster2000-vs-grandmaster-chessmaster2000-final.png",
+        "chessmaster2000-vs-grandmaster-grandmaster-final.png"
+      ]
+    }
+  ]
+}

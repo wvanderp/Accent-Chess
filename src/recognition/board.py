@@ -31,6 +31,7 @@ class Profile:
     fill_scanlines: bool = False
     extra_templates: tuple[tuple[Path, str, int], ...] = ()
     shape_reader: Callable[[Image.Image, tuple[int, int, int], bool], np.ndarray] | None = None
+    min_background_fraction: float = 0.3
 
 
 @dataclass
@@ -107,7 +108,7 @@ class BoardReader:
         self.kinds = [kind for kind, _ in variants]
         self.masks = np.stack([mask for _, mask in variants])
 
-    def read(self, frame: Image.Image) -> Observation:
+    def read(self, frame: Image.Image, *, flipped: bool = False) -> Observation:
         if frame.size != (640, 480):
             raise RecognitionError(f"Expected 640x480 runtime frame, got {frame.size}")
         frame = frame.convert("RGB")
@@ -117,13 +118,16 @@ class BoardReader:
         details: list[dict[str, object]] = []
         for row in range(8):
             for file in range(8):
+                # A game may exchange board ends while keeping sprites upright.
+                # Remap squares, rather than rotating pixels/template shapes.
+                position = chess.square(7 - file, row) if flipped else chess.square(file, 7 - row)
                 box = square_box(self.profile.region, file, row)
                 square = frame.crop(box)
                 background = self.profile.backgrounds[(file + row) % 2]
                 pixels = np.asarray(square, dtype=np.int16)
                 # Every supported square exposes background, including occupied ones.
                 background_fraction = float(np.mean(np.max(np.abs(pixels - background), axis=2) < 30))
-                if background_fraction < 0.3:
+                if background_fraction < self.profile.min_background_fraction:
                     raise RecognitionError(f"Board/background not visible at {chess.square_name(chess.square(file, 7-row))}")
                 mask = self.shape_reader(square, background, self.profile.fill_scanlines)
                 symbol = "."
@@ -137,9 +141,9 @@ class BoardReader:
                         raise RecognitionError(f"Unknown piece at {chess.square_name(chess.square(file, 7-row))} (distance {score:.3f})")
                     color = self.profile.color_reader(square, mask)
                     piece = chess.Piece(kind, color)
-                    board.set_piece_at(chess.square(file, 7 - row), piece)
+                    board.set_piece_at(position, piece)
                     symbol = piece.symbol()
-                name = chess.square_name(chess.square(file, 7 - row))
+                name = chess.square_name(position)
                 details.append({"square": name, "piece": symbol, "distance": round(score, 4),
                                 "background_fraction": round(background_fraction, 4), "box": box})
                 draw.rectangle(box, outline="#00aa00")

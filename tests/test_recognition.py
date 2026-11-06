@@ -39,6 +39,29 @@ def test_native_starting_frames(game: str) -> None:
     assert len(result.squares) == 64
 
 
+@pytest.mark.parametrize('game,filename,placement', [
+    ('grandmaster', 'grandmaster-king-g6.png', 'r4bnr/pp2pppp/1n4k1/6N1/3p1Q2/8/PPP2PPP/R1B1K2R'),
+    ('chess19xx', 'chess19xx-queen-f6.png', 'r3kbnr/1pp2ppp/p1Np1q2/8/B1b1P3/8/PP3PPP/RNBQK2R'),
+    ('chess19xx', 'chess19xx-king-f5.png', '8/3N2pp/1bp5/1p3k2/1P5P/4B3/6P1/6K1'),
+    ('chessmaster2000', 'chessmaster2000-white-c4.png', 'rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR'),
+])
+def test_tournament_live_regressions(game: str, filename: str, placement: str) -> None:
+    with Image.open(Path(__file__).parent / 'fixtures' / 'recognition' / filename) as frame:
+        assert create_reader(game).read(frame).placement == placement
+
+
+def test_flipped_board_remaps_squares_without_rotating_sprites() -> None:
+    reader = create_reader('grandmaster')
+    with Image.open(reader.profile.reference) as reference:
+        frame = reference.copy()
+        for row in range(8):
+            for file in range(8):
+                source = square_box(reader.profile.region, file, row)
+                destination = square_box(reader.profile.region, 7 - file, 7 - row)
+                frame.paste(reference.crop(source), destination)
+    assert reader.read(frame, flipped=True).placement == chess.STARTING_BOARD_FEN
+
+
 @pytest.mark.parametrize("game", ["grandmaster", "chess19xx"])
 def test_empty_and_menu_frames_are_rejected(game: str) -> None:
     reader = create_reader(game)

@@ -1,0 +1,73 @@
+{
+  "id": "76eef06e7d3d4ecfb10529458dd34796",
+  "started": "2026-11-05T16:03:22.814440+00:00",
+  "requested": 6,
+  "completed": 6,
+  "failed": 0,
+  "status": "completed",
+  "engines": {
+    "grandmaster": {
+      "kind": "vintage",
+      "game": "grandmaster",
+      "url": "http://127.0.0.1:8765"
+    },
+    "chess19xx": {
+      "kind": "vintage",
+      "game": "chess19xx",
+      "url": "http://127.0.0.1:8766"
+    },
+    "chessmaster2000": {
+      "kind": "vintage",
+      "game": "chessmaster2000",
+      "url": "http://127.0.0.1:8767"
+    },
+    "battlechess": {
+      "kind": "vintage",
+      "game": "battlechess",
+      "url": "http://127.0.0.1:8768"
+    },
+    "stockfish": {
+      "kind": "uci",
+      "command": "C:\\bins\\stockfish\\stockfish.exe"
+    }
+  },
+  "pairings": [
+    [
+      "stockfish",
+      "chess19xx"
+    ],
+    [
+      "stockfish",
+      "chessmaster2000"
+    ],
+    [
+      "stockfish",
+      "grandmaster"
+    ],
+    [
+      "chessmaster2000",
+      "stockfish"
+    ],
+    [
+      "grandmaster",
+      "stockfish"
+    ],
+    [
+      "chessmaster2000",
+      "chess19xx"
+    ],
+    [
+      "chessmaster2000",
+      "grandmaster"
+    ],
+    [
+      "grandmaster",
+      "chess19xx"
+    ],
+    [
+      "grandmaster",
+      "chessmaster2000"
+    ]
+  ],
+  "finished": "2026-11-05T16:26:23.874522+00:00"
+}

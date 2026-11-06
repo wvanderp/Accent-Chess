@@ -36,4 +36,8 @@ def piece_shape(square: Image.Image, background: tuple[int, int, int], fill_scan
 
 PROFILE = Profile("chessmaster2000", Path(__file__).with_name("recognition.png"),
                   (202, 146, 243, 178), ((213, 213, 213), (62, 81, 240)),
-                  piece_color, template_shift=2, shape_reader=piece_shape)
+                  piece_color, template_shift=2, shape_reader=piece_shape,
+                  # Kings on 30px blue squares leave 24.4-28.8% background
+                  # (live Kxh2 and O-O-O/c1). The generic 30% bound rejected
+                  # these legitimate positions despite a confident king sprite.
+                  min_background_fraction=0.20)

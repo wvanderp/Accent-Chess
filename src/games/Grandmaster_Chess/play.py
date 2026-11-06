@@ -14,33 +14,75 @@ import numpy as np
 from PIL import Image
 
 from emulation.client import RuntimeClient
+from emulation.play import GameResigned
 
 
 class Connector:
     human_color = chess.WHITE
+    computer_colors = (chess.WHITE, chess.BLACK)
 
     def __init__(self, client: RuntimeClient) -> None:
         self.client = client
         self.stage = "boot"
+        self.flipped = False
+        self.input_clock: bytes | None = None
+        self.announcement_pending = False
+        self.announcement_observations = 0
+        self.announcement_retries = 0
+        self.announcement_kind = ''
+        self.completed_notice_seen = False
         self.previous: bytes | None = None
         self.skipped: set[bytes] = set()
         self.references: dict[str, Image.Image] = {}
-        for name in ("game-menu", "new-game-confirm", "recognition"):
+        for name in ("game-menu", "new-game-confirm", "recognition", "resignation", "mate-announcement", "game-completed", "rating-calculation"):
             with Image.open(Path(__file__).with_name(name + ".png")) as image:
                 self.references[name] = image.convert("RGB")
 
     def keys(self, *names: str) -> None:
         for name in names:
-            self.client.send("key", {"name": name})
+            # At 12ms DOSBox can lose coordinate characters under host load.
+            # This is key duration, never a substitute for UI acknowledgement.
+            self.client.send("key", {"name": name, "delay_ms": 150})
 
     def reset(self) -> None:
         self.stage = "boot"
         self.previous = None
         self.skipped.clear()
+        self.announcement_pending = False
+        self.announcement_observations = self.announcement_retries = 0
+        self.announcement_kind = ''
+        self.completed_notice_seen = False
         # The DOS software hand cursor is part of captured pixels. Parking it
         # outside the board prevents it being classified as an unknown piece.
         self.client.send("pointer", {"x": 630, "y": 470})
         self.keys("Escape")
+
+    def play_as(self, color: chess.Color) -> None:
+        """Switching at the initial position starts White and reverses the ends.
+
+        Verified against the DOS release: piece sprites stay upright, the
+        human clock stays in the lower panel, and coordinate input stays in
+        absolute algebraic notation. A display rotation alone is insufficient.
+        """
+        if color == chess.WHITE:
+            self.keys("F2", "Down", "Down", "Return")
+            self.client.send("pointer", {"x": 630, "y": 470})
+            self.client.send("pointer", {"x": 0, "y": 0})
+            self.human_color = chess.BLACK
+            self.flipped = True
+
+    def input_ready(self, frame: Image.Image, board: chess.Board) -> bool:
+        """An advancing human clock gates input after the engine's redraw.
+
+        Before the first move the clocks are stopped, so the confirmed reset
+        supplies readiness. Later a legal board can precede keyboard readiness.
+        """
+        if board.ply() == 0:
+            return True
+        clock = frame.crop((530, 166, 600, 181)).tobytes()
+        previous = self.input_clock
+        self.input_clock = clock
+        return previous is not None and clock != previous
 
     def matches(self, frame: Image.Image, name: str, box: tuple[int, int, int, int]) -> bool:
         actual = np.asarray(frame.convert("RGB").crop(box), dtype=np.int16)
@@ -83,10 +125,64 @@ class Connector:
         return False
 
     def move(self, move: chess.Move) -> None:
+        self.input_clock = None
         self.keys(*move.uci(), "Return")
 
     def advance(self, frame: Image.Image) -> None:
-        """Grandmaster accepts the entire move in one input operation."""
+        """A search forecast is an informational modal, never a game result."""
+        completed = self.matches(frame, 'game-completed', (225, 197, 414, 224))
+        self.completed_notice_seen |= completed
+        notice: tuple[str, str] | None = None
+        if self.rating_prompt(frame):
+            notice = ('rating', 'Escape')
+        elif self.completed_notice_seen and self.matches(frame, 'new-game-confirm', (225, 197, 414, 281)):
+            notice = ('new-game', 'Escape')
+        elif self.information_dialog(frame):
+            notice = ('completed' if completed else 'information', 'Return')
+        if notice is not None:
+            kind, key = notice
+            if not self.announcement_pending or kind != self.announcement_kind:
+                self.keys(key)
+                self.announcement_pending = True
+                self.announcement_kind = kind
+                self.announcement_observations = self.announcement_retries = 0
+            else:
+                self.announcement_observations += 1
+                if self.announcement_observations >= 6 and self.announcement_retries < 2:
+                    self.keys(key)
+                    self.announcement_retries += 1
+                    self.announcement_observations = 0
+            return
+        if self.announcement_pending:
+            self.client.send('pointer', {'x': 630, 'y': 470})
+            self.client.send('pointer', {'x': 0, 'y': 0})
+            self.announcement_pending = False
+            self.announcement_kind = ''
+        if self.matches(frame, 'resignation', (225, 197, 414, 281)):
+            raise GameResigned(not self.human_color)
+
+    def information_dialog(self, frame: Image.Image) -> bool:
+        """Acknowledge a GAME notification with a single centered OK button.
+
+        The live White engine displayed 'Mate in 3 !' after Bd7, obscuring an
+        otherwise legal board. Acknowledging it reveals the played move and
+        lets normal legal-position tracking continue to actual checkmate.
+        Text/depth is deliberately not interpreted as a result. Two-button
+        decisions (new game/resignation) do not match this notification chrome.
+        """
+        return (any(self.matches(frame, name, (225, 197, 414, 224))
+                    for name in ('mate-announcement', 'game-completed'))
+                and self.matches(frame, 'mate-announcement', (285, 252, 352, 279)))
+
+    def rating_prompt(self, frame: Image.Image) -> bool:
+        """Decline native player-rating updates; tournament scores live outside DOS.
+
+        GAME COMPLETED is followed by this optional CHESS RATING prompt. It
+        must be cancelled before the final board can be recognized. No score
+        is inferred from either dialog; normal legal-board validation remains.
+        """
+        return (self.matches(frame, 'rating-calculation', (157, 197, 483, 224))
+                and self.matches(frame, 'rating-calculation', (166, 225, 474, 244)))
 
     def clock_samples(self, frame: Image.Image) -> tuple[bytes, bytes]:
         """Isolate white/black clock digits, excluding names and move text.

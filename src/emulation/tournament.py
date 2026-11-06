@@ -1,26 +1,28 @@
-"""Persistent tournament ledger and frame-driven vintage/UCI match runner.
+"""Persistent round robin with isolated runtimes and confirmed vintage moves.
 
-Vintage connectors currently expose computer-as-black only. Pairings retain
-colors explicitly so adding white-side support does not invalidate history.
-Failures never count as results or remove a pairing from the pending queue.
+Capabilities gate scheduling. Failures never count as completed games, and
+the requested count means different completed pairings in this invocation.
 """
 import argparse
 from datetime import datetime, timezone
-from io import BytesIO
+from contextlib import ExitStack
 import json
+import shutil
+import sys
 from pathlib import Path
-from time import monotonic
 import traceback
 from uuid import uuid4
 
 import chess
 import chess.engine
 import chess.pgn
-from PIL import Image
 
 from .client import RuntimeClient
-from .play import PlaySession, create_connector
-from recognition.runtime import RuntimeRecognizer
+from .play import GameResigned, supports_color
+from .participants import Participant, UciParticipant, VintageParticipant
+from .settings import load_stockfish_path
+from .tournament_runtime import build_image, runtime
+from .tournament_lock import ledger_lock
 
 
 class Ledger:
@@ -58,6 +60,26 @@ class Ledger:
         return [(p['white'], p['black']) for p in self.state['pairings']
                 if not any(a['status'] == 'completed' for a in p['attempts'])]
 
+    def recover_interrupted(self) -> None:
+        """Called only after acquiring the process lock, before starting a run."""
+        for pairing in self.state['pairings']:
+            for attempt in pairing['attempts']:
+                if attempt['status'] == 'running':
+                    attempt.update(status='failed', error='Previous runner was interrupted', result=None)
+        for path in self.root.glob('run-*.json'):
+            report = json.loads(path.read_text(encoding='utf-8'))
+            if report.get('status') == 'running':
+                attempts = [attempt for pairing in self.state['pairings'] for attempt in pairing['attempts']
+                            if attempt.get('run_id') == report.get('id')]
+                report.update(status='failed', error='Previous runner was interrupted',
+                              completed=sum(attempt['status'] == 'completed' for attempt in attempts),
+                              failed=sum(attempt['status'] == 'failed' for attempt in attempts),
+                              finished=datetime.now(timezone.utc).isoformat())
+                temporary = path.with_suffix('.tmp')
+                temporary.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+                temporary.replace(path)
+        self.save()
+
     def start(self, white: str, black: str) -> Path:
         directory = self.root / uuid4().hex
         directory.mkdir()
@@ -68,6 +90,8 @@ class Ledger:
         return directory
 
     def finish(self, directory: Path, result: str | None, error: str | None) -> None:
+        if error is None and result not in {'1-0', '0-1', '1/2-1/2'}:
+            raise ValueError('A completed game must have a chess result')
         attempt = next(a for p in self.state['pairings'] for a in p['attempts'] if a['id'] == directory.name)
         attempt.update(status='failed' if error else 'completed', result=result, error=error)
         self.save()
@@ -86,104 +110,198 @@ class Ledger:
         return sorted(scores.values(), key=lambda e: (-e['points'], -e['wins'], e['engine']))
 
 
+def runnable(white: str, black: str, engines: dict[str, dict[str, str]]) -> bool:
+    def supports(name: str, color: chess.Color) -> bool:
+        definition = engines[name]
+        return definition['kind'] == 'uci' or (
+            definition['kind'] == 'vintage' and supports_color(definition['game'], color))
+    return supports(white, chess.WHITE) and supports(black, chess.BLACK)
+
+
 def run_match(ledger: Ledger, white: str, black: str, engines: dict[str, dict[str, str]],
-              timeout: float, move_time: float, max_plies: int) -> bool:
+              timeout: float, move_time: float, max_plies: int, *, managed: bool = True,
+              run_id: str | None = None) -> bool:
     directory = ledger.start(white, black)
+    attempt = next(a for p in ledger.state['pairings'] for a in p['attempts'] if a['id'] == directory.name)
+    attempt['run_id'] = run_id
+    attempt['settings'] = {'move_time': move_time, 'timeout': timeout, 'max_plies': max_plies}
+    ledger.save()
     board = chess.Board()
-    engine: chess.engine.SimpleEngine | None = None
-    recognizer: RuntimeRecognizer | None = None
+    participants: dict[chess.Color, Participant] = {}
+    clients: dict[str, RuntimeClient] = {}
     error: str | None = None
     result: str | None = None
+    termination = 'unterminated'
     try:
-        client = RuntimeClient(engines[black]['url'])
-        game = engines[black]['game']
-        if client.snapshot().get('game') != game:
-            raise ValueError('Runtime game does not match configured engine')
-        recognizer = RuntimeRecognizer(game, client)
-        session = PlaySession(create_connector(game, client))
-        engine = chess.engine.SimpleEngine.popen_uci(engines[white]['command'])
-        engine.timeout = timeout
-        session.new_game()
-        deadline = monotonic() + timeout
-        with (directory / 'events.jsonl').open('a', encoding='utf-8') as log:
-            while not board.is_game_over():
-                if monotonic() > deadline:
-                    raise TimeoutError('No confirmed move before deadline')
-                snapshot = client.snapshot()
-                if snapshot.get('game') != game:
-                    raise ValueError('Runtime changed game during match')
-                recognizer.process(snapshot)
-                with Image.open(BytesIO(recognizer.last_png)) as frame:
-                    session.observe(frame, recognizer.confirmed_placement)
-                if session.board is None and not session.resetting:
-                    raise RuntimeError(session.message)
-                if session.position_confirmed and session.board is not None:
-                    observed = session.board
-                    if observed.board_fen() != board.board_fen():
-                        if observed.move_stack[:len(board.move_stack)] != board.move_stack:
-                            raise ValueError('Runtime history diverged from recorded game')
-                        for move in observed.move_stack[len(board.move_stack):]:
-                            board.push(move)
-                            log.write(json.dumps({'ply': board.ply(), 'move': move.uci(), 'fen': board.fen()}) + '\n')
-                            log.flush()
-                        deadline = monotonic() + timeout
-                    if board.is_game_over():
-                        break
+        with ExitStack() as stack:
+            for name, color in ((white, chess.WHITE), (black, chess.BLACK)):
+                definition = engines[name]
+                if definition['kind'] == 'uci':
+                    participant: Participant = UciParticipant(definition['command'], timeout, move_time)
+                else:
+                    game = definition['game']
+                    client = (stack.enter_context(runtime(game, directory, timeout)) if managed
+                              else RuntimeClient(definition['url']))
+                    clients[name] = client
+                    participant = VintageParticipant(game, client, color, timeout)
+                stack.callback(participant.close)
+                participants[color] = participant
+            with (directory / 'events.jsonl').open('a', encoding='utf-8') as log:
+                while not board.is_game_over(claim_draw=True):
                     if board.ply() >= max_plies:
                         raise RuntimeError('Ply limit reached; result remains unadjudicated')
-                    if session.ready and board.turn == chess.WHITE:
-                        choice = engine.play(board, chess.engine.Limit(time=move_time))
-                        if choice.move is None:
-                            raise RuntimeError('UCI engine returned no move')
-                        session.submit(choice.move.uci())
-            result = board.result()
+                    try:
+                        move = participants[board.turn].choose(board.copy())
+                    except GameResigned as resignation:
+                        if resignation.color != board.turn:
+                            raise ValueError('Resignation color differs from the active participant')
+                        result = '0-1' if resignation.color == chess.WHITE else '1-0'
+                        termination = 'resignation'
+                        log.write(json.dumps({'termination': termination, 'color': chess.COLOR_NAMES[resignation.color],
+                                              'fen': board.fen()}) + '\n')
+                        log.flush()
+                        break
+                    if move not in board.legal_moves:
+                        raise ValueError(f'Participant returned illegal move {move}')
+                    san = board.san(move)
+                    board.push(move)
+                    log.write(json.dumps({'ply': board.ply(), 'move': move.uci(), 'fen': board.fen()}) + '\n')
+                    log.flush()
+                    print(f'{white} vs {black}: {board.ply()} {san} ({move.uci()})', flush=True)
+                    pgn = chess.pgn.Game.from_board(board)
+                    pgn.headers.update(White=white, Black=black, Result='*')
+                    (directory / 'game.pgn').write_text(str(pgn) + '\n', encoding='utf-8')
+                if result is None:
+                    for color, participant in participants.items():
+                        if isinstance(participant, VintageParticipant):
+                            try:
+                                participant.finish(board.copy())
+                            except GameResigned as resignation:
+                                if resignation.color != color:
+                                    raise ValueError('Resignation color differs from participant')
+                                result = '0-1' if color == chess.WHITE else '1-0'
+                                termination = 'resignation'
+                    if result is None:
+                        result = board.result(claim_draw=True)
+                        outcome = board.outcome(claim_draw=True)
+                        assert outcome is not None
+                        termination = outcome.termination.name
+                for name, client in clients.items():
+                    import base64
+                    (directory / f'{name}-final.png').write_bytes(base64.b64decode(client.snapshot()['png']))
     except BaseException as exc:
+        result = None
         error = str(exc) or type(exc).__name__
         (directory / 'failure.log').write_text(traceback.format_exc(), encoding='utf-8')
-        if recognizer and recognizer.last_png:
-            (directory / 'failure.png').write_bytes(recognizer.last_png)
+        for color, participant in participants.items():
+            if isinstance(participant, VintageParticipant) and participant.last_png:
+                (directory / f'{chess.COLOR_NAMES[color]}-failure.png').write_bytes(participant.last_png)
         if isinstance(exc, (KeyboardInterrupt, SystemExit)):
             raise
     finally:
         pgn = chess.pgn.Game.from_board(board)
-        pgn.headers.update(White=white, Black=black, Result=result or '*')
+        pgn.headers.update(Event='Accent Chess round robin', White=white, Black=black,
+                           Result=result or '*', Termination=termination if result else 'unterminated')
+        attempt.update(termination=termination if result else None, plies=board.ply(), final_fen=board.fen())
         (directory / 'game.pgn').write_text(str(pgn) + '\n', encoding='utf-8')
         ledger.finish(directory, result, error)
-        if engine:
-            engine.close()
+    print(f'{white} vs {black}: {result or "FAILED: " + str(error)} [{directory}]', flush=True)
     return error is None
 
 
+def configure_output() -> None:
+    """Docker/package logs contain Unicode even with redirected Windows stdout.
+
+    Python otherwise selects CP1252 for a pipe, and a package's symlink arrow
+    can abort an uncached image build before any match starts. StringIO/test
+    streams already support Unicode and do not need reconfiguration.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, 'reconfigure', None)
+        if reconfigure is not None:
+            reconfigure(encoding='utf-8', errors='backslashreplace')
+
+
 def main() -> None:
+    configure_output()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['run', 'pending', 'ranking', 'history'])
     parser.add_argument('--data', type=Path, default=Path('tournament-data'))
-    parser.add_argument('--count', type=int, default=1)
-    parser.add_argument('--timeout', type=float, default=240)
-    parser.add_argument('--move-time', type=float, default=1)
+    parser.add_argument('--count', type=int, default=6, help='Number of different completed pairings required')
+    parser.add_argument('--timeout', type=float, default=300)
+    parser.add_argument('--move-time', type=float, default=0.3)
     parser.add_argument('--max-plies', type=int, default=600)
+    parser.add_argument('--stockfish', help='Register Stockfish; defaults to the saved viewer executable')
+    parser.add_argument('--external-runtimes', action='store_true', help='Use ledger URLs instead of starting isolated Docker runtimes')
     args = parser.parse_args()
+    if args.count < 1 or args.timeout <= 0 or args.move_time <= 0 or args.max_plies < 1:
+        parser.error('Counts, timeouts, move time and ply limits must be positive')
+    with ledger_lock(args.data):
+        execute(args)
+
+
+def execute(args: argparse.Namespace) -> None:
     ledger = Ledger(args.data)
+    if args.action == 'run':
+        ledger.recover_interrupted()
+        command = args.stockfish or load_stockfish_path() or shutil.which('stockfish')
+        if command:
+            with chess.engine.SimpleEngine.popen_uci(command, timeout=args.timeout):
+                pass
+            ledger.state['engines']['stockfish'] = {'kind': 'uci', 'command': command}
+            ledger.save()
+            ledger = Ledger(args.data)  # Extend ordered pairings after registration.
     engines = ledger.state['engines']
-    try:
-        if args.action == 'ranking':
-            print(json.dumps(ledger.ranking(engines), indent=2))
-        elif args.action == 'history':
-            print(json.dumps(ledger.state['pairings'], indent=2))
-        else:
-            pending = ledger.pending(engines)
-            supported = [(w, b) for w, b in pending if engines[w]['kind'] == 'uci' and engines[b]['kind'] == 'vintage']
-            if args.action == 'pending':
-                print(json.dumps([{'white': w, 'black': b, 'runnable': (w, b) in supported} for w, b in pending], indent=2))
-            else:
-                for white, black in supported[:args.count]:
-                    print(f'Playing {white} vs {black}', flush=True)
-                    if not run_match(ledger, white, black, engines, args.timeout, args.move_time, args.max_plies):
-                        raise SystemExit('Match failed; see tournament-data artifacts')
-                if not supported:
-                    print('No supported unplayed pairings remain.')
-    finally:
-        pass
+    if args.action == 'ranking':
+        print(json.dumps(ledger.ranking(engines), indent=2))
+    elif args.action == 'history':
+        print(json.dumps(ledger.state['pairings'], indent=2))
+    else:
+        pending = ledger.pending(engines)
+        supported = [(w, b) for w, b in pending if runnable(w, b, engines)]
+        if args.action == 'pending':
+            print(json.dumps([{'white': w, 'black': b, 'runnable': (w, b) in supported} for w, b in pending], indent=2))
+            return
+        if len(supported) < args.count:
+            raise SystemExit(f'Requested {args.count} different matches, but only {len(supported)} pending pairings are runnable. '
+                             'Use --stockfish PATH to include a UCI opponent, or inspect pending.')
+        run_id = uuid4().hex
+        report = {'id': run_id, 'started': datetime.now(timezone.utc).isoformat(),
+                  'requested': args.count, 'completed': 0, 'failed': 0, 'status': 'running',
+                  'engines': engines, 'pairings': supported}
+        report_path = args.data / f'run-{run_id}.json'
+        def save_report() -> None:
+            temporary = report_path.with_suffix('.tmp')
+            temporary.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+            temporary.replace(report_path)
+        save_report()
+        try:
+            if not args.external_runtimes and any(engines[n]['kind'] == 'vintage' for pair in supported for n in pair):
+                build_image()
+            # Strong UCI opponents first give quick independent end-to-end checks;
+            # every pairing is still played by its actual registered programs.
+            supported.sort(key=lambda pair: (
+                not any(engines[name]['kind'] == 'uci' for name in pair),
+                engines[pair[0]]['kind'] != 'uci', pair))
+            for white, black in supported:
+                print(f'Playing {white} vs {black} ({report["completed"]}/{args.count} completed)', flush=True)
+                completed = run_match(ledger, white, black, engines, args.timeout, args.move_time,
+                                      args.max_plies, managed=not args.external_runtimes, run_id=run_id)
+                report['completed' if completed else 'failed'] += 1
+                save_report()
+                if report['completed'] >= args.count:
+                    break
+            if report['completed'] < args.count:
+                raise RuntimeError(f'Only {report["completed"]}/{args.count} matches completed; failed pairings remain pending')
+            report['status'] = 'completed'
+        except BaseException:
+            report['status'] = 'failed'
+            raise
+        finally:
+            report['finished'] = datetime.now(timezone.utc).isoformat()
+            save_report()
+        print(f'Completed {report["completed"]} different matches in one invocation: {report_path}', flush=True)
+        print(json.dumps(ledger.ranking(engines), indent=2))
 
 
 if __name__ == '__main__':
