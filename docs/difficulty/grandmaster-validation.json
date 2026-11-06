@@ -1,0 +1,11 @@
+{
+  "profiles_verified_with_reopen_readback": [
+    "beginner",
+    "novice",
+    "intermediate",
+    "expert",
+    "grandmaster"
+  ],
+  "invalid_profile_rejected": true,
+  "incorrect_ui_rejected": "Grandmaster difficulty: Game menu did not open"
+}

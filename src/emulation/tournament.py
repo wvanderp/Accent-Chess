@@ -23,13 +23,13 @@ from .participants import Participant, UciParticipant, VintageParticipant
 from .settings import load_stockfish_path
 from .tournament_runtime import build_image, runtime
 from .tournament_lock import ledger_lock
+from .difficulty import default_engines
 
 
 class Ledger:
     """Single-writer permanent JSON history; replacement prevents partial writes."""
 
     def __init__(self, root: Path) -> None:
-        from games.catalog import GAMES
         self.root = root
         root.mkdir(parents=True, exist_ok=True)
         self.path = root / 'state.json'
@@ -37,12 +37,25 @@ class Ledger:
             'version': 1, 'engines': {}, 'pairings': []}
         if self.state['version'] != 1:
             raise ValueError('Unsupported state version')
-        for index, game in enumerate(GAMES):
-            self.state['engines'].setdefault(game, {'kind': 'vintage', 'game': game,
-                'url': f'http://127.0.0.1:{8765 + index}'})
+        defaults = default_engines()
+        profiled_games = {definition['game'] for definition in defaults.values() if 'difficulty' in definition}
+        for name, definition in self.state['engines'].items():
+            if (definition['kind'] == 'vintage' and definition['game'] in profiled_games
+                    and 'difficulty' not in definition):
+                # Historical games have an unknown setting. Preserve their
+                # identity/results rather than relabeling them as a new level.
+                definition['retired'] = 'unrecorded native difficulty'
+        for name, definition in defaults.items():
+            existing = self.state['engines'].get(name)
+            if existing is not None and any(existing.get(field) != definition.get(field)
+                                            for field in ('kind', 'game', 'difficulty')):
+                raise ValueError(f'Engine identity conflicts with native difficulty profile: {name}')
+            self.state['engines'].setdefault(name, definition)
         known = {(p['white'], p['black']) for p in self.state['pairings']}
         for white in self.state['engines']:
             for black in self.state['engines']:
+                if any('retired' in self.state['engines'][name] for name in (white, black)):
+                    continue
                 if white != black and (white, black) not in known:
                     self.state['pairings'].append({'white': white, 'black': black, 'attempts': []})
         self.save()
@@ -58,6 +71,7 @@ class Ledger:
 
     def pending(self, engines: dict[str, dict[str, str]]) -> list[tuple[str, str]]:
         return [(p['white'], p['black']) for p in self.state['pairings']
+                if all('retired' not in engines[name] for name in (p['white'], p['black']))
                 if not any(a['status'] == 'completed' for a in p['attempts'])]
 
     def recover_interrupted(self) -> None:
@@ -98,6 +112,9 @@ class Ledger:
 
     def ranking(self, engines: dict[str, dict[str, str]]) -> list[dict[str, object]]:
         scores = {name: {'engine': name, 'played': 0, 'points': 0.0, 'wins': 0} for name in engines}
+        for name, definition in engines.items():
+            if 'retired' in definition:
+                scores[name]['retired'] = definition['retired']
         for pairing in self.state['pairings']:
             for attempt in pairing['attempts']:
                 if attempt['status'] != 'completed':
@@ -113,6 +130,8 @@ class Ledger:
 def runnable(white: str, black: str, engines: dict[str, dict[str, str]]) -> bool:
     def supports(name: str, color: chess.Color) -> bool:
         definition = engines[name]
+        if 'retired' in definition:
+            return False
         return definition['kind'] == 'uci' or (
             definition['kind'] == 'vintage' and supports_color(definition['game'], color))
     return supports(white, chess.WHITE) and supports(black, chess.BLACK)
@@ -120,11 +139,13 @@ def runnable(white: str, black: str, engines: dict[str, dict[str, str]]) -> bool
 
 def run_match(ledger: Ledger, white: str, black: str, engines: dict[str, dict[str, str]],
               timeout: float, move_time: float, max_plies: int, *, managed: bool = True,
-              run_id: str | None = None) -> bool:
+              run_id: str | None = None, thinking_timeout: float | None = None) -> bool:
     directory = ledger.start(white, black)
     attempt = next(a for p in ledger.state['pairings'] for a in p['attempts'] if a['id'] == directory.name)
     attempt['run_id'] = run_id
-    attempt['settings'] = {'move_time': move_time, 'timeout': timeout, 'max_plies': max_plies}
+    attempt['settings'] = {'stockfish_move_time': move_time, 'startup_timeout': timeout,
+                           'thinking_timeout': thinking_timeout, 'max_plies': max_plies}
+    attempt['engines'] = {name: dict(engines[name]) for name in (white, black)}
     ledger.save()
     board = chess.Board()
     participants: dict[chess.Color, Participant] = {}
@@ -140,10 +161,15 @@ def run_match(ledger: Ledger, white: str, black: str, engines: dict[str, dict[st
                     participant: Participant = UciParticipant(definition['command'], timeout, move_time)
                 else:
                     game = definition['game']
-                    client = (stack.enter_context(runtime(game, directory, timeout)) if managed
+                    runtime_directory = directory / chess.COLOR_NAMES[color]
+                    runtime_directory.mkdir()
+                    client = (stack.enter_context(runtime(game, runtime_directory, timeout)) if managed
                               else RuntimeClient(definition['url']))
+                    if (not managed and any(other.url == client.url for other in clients.values())):
+                        raise ValueError('Each participant requires an independent runtime; duplicate external URL')
                     clients[name] = client
-                    participant = VintageParticipant(game, client, color, timeout)
+                    participant = VintageParticipant(game, client, color, timeout,
+                        difficulty=definition.get('difficulty'), thinking_timeout=thinking_timeout)
                 stack.callback(participant.close)
                 participants[color] = participant
             with (directory / 'events.jsonl').open('a', encoding='utf-8') as log:
@@ -188,7 +214,9 @@ def run_match(ledger: Ledger, white: str, black: str, engines: dict[str, dict[st
                         termination = outcome.termination.name
                 for name, client in clients.items():
                     import base64
-                    (directory / f'{name}-final.png').write_bytes(base64.b64decode(client.snapshot()['png']))
+                    # Profile IDs contain ':'; Windows filenames cannot.
+                    filename = name.replace(':', '--') + '-final.png'
+                    (directory / filename).write_bytes(base64.b64decode(client.snapshot()['png']))
     except BaseException as exc:
         result = None
         error = str(exc) or type(exc).__name__
@@ -228,14 +256,18 @@ def main() -> None:
     parser.add_argument('action', choices=['run', 'pending', 'ranking', 'history'])
     parser.add_argument('--data', type=Path, default=Path('tournament-data'))
     parser.add_argument('--count', type=int, default=6, help='Number of different completed pairings required')
-    parser.add_argument('--timeout', type=float, default=300)
-    parser.add_argument('--move-time', type=float, default=0.3)
+    parser.add_argument('--timeout', type=float, default=300, help='Startup/input/menu timeout; does not limit native searches')
+    parser.add_argument('--thinking-timeout', type=float, default=None,
+                        help='Optional vintage search watchdog; default waits for the full native search')
+    parser.add_argument('--move-time', type=float, default=0.3, help='Stockfish benchmark search budget only')
     parser.add_argument('--max-plies', type=int, default=600)
     parser.add_argument('--stockfish', help='Register Stockfish; defaults to the saved viewer executable')
     parser.add_argument('--external-runtimes', action='store_true', help='Use ledger URLs instead of starting isolated Docker runtimes')
     args = parser.parse_args()
     if args.count < 1 or args.timeout <= 0 or args.move_time <= 0 or args.max_plies < 1:
         parser.error('Counts, timeouts, move time and ply limits must be positive')
+    if args.thinking_timeout is not None and args.thinking_timeout <= 0:
+        parser.error('--thinking-timeout must be positive')
     with ledger_lock(args.data):
         execute(args)
 
@@ -286,7 +318,8 @@ def execute(args: argparse.Namespace) -> None:
             for white, black in supported:
                 print(f'Playing {white} vs {black} ({report["completed"]}/{args.count} completed)', flush=True)
                 completed = run_match(ledger, white, black, engines, args.timeout, args.move_time,
-                                      args.max_plies, managed=not args.external_runtimes, run_id=run_id)
+                                      args.max_plies, managed=not args.external_runtimes, run_id=run_id,
+                                      thinking_timeout=args.thinking_timeout)
                 report['completed' if completed else 'failed'] += 1
                 save_report()
                 if report['completed'] >= args.count:

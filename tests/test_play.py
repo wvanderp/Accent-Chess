@@ -33,8 +33,8 @@ class FakeConnector:
 FRAME = Image.new("RGB", (640, 480))
 
 
-def ready_session() -> PlaySession:
-    session = PlaySession(FakeConnector())
+def ready_session(move_timeout: float | None = None) -> PlaySession:
+    session = PlaySession(FakeConnector(), move_timeout=move_timeout)
     session.new_game()
     assert not session.ready
     session.observe(FRAME, None)
@@ -89,7 +89,7 @@ def test_unrelated_positions_and_missing_frames_disable_input() -> None:
 
 
 def test_illegal_move_timeout_and_reset() -> None:
-    session = ready_session()
+    session = ready_session(move_timeout=20)
     with pytest.raises(ValueError):
         session.submit("e2e5")
     assert session.ready
@@ -103,14 +103,30 @@ def test_illegal_move_timeout_and_reset() -> None:
     assert session.board is not None and not session.board.move_stack
 
 
-def test_recovery_from_transient_unrelated_placement_clears_deadline() -> None:
+def test_recovery_from_transient_unrelated_placement_keeps_unlimited_wait() -> None:
     session = ready_session()
     unrelated = chess.Board()
     unrelated.push_uci("d2d4")
     session.observe(FRAME, unrelated.board_fen())
-    assert session.deadline and not session.ready
+    assert session.deadline == 0.0 and not session.ready
     session.observe(FRAME, chess.STARTING_BOARD_FEN)
     assert session.ready and session.deadline == 0.0
+
+
+def test_native_search_can_exceed_old_three_minute_deadline() -> None:
+    session = ready_session()
+    session.submit('e2e4')
+    board = chess.Board()
+    board.push_uci('e2e4')
+    session.observe(FRAME, board.board_fen())
+    assert session.deadline == 0.0
+    with patch('emulation.play.monotonic', return_value=10**12):
+        session.observe(FRAME, board.board_fen())
+        assert session.board is not None and not session.ready
+        board.push_uci('e7e5')
+        session.observe(FRAME, board.board_fen())
+    assert session.ready and session.board is not None
+    assert session.board.move_stack == board.move_stack
 
 
 class RecordingClient:

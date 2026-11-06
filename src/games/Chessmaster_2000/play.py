@@ -20,7 +20,6 @@ class Connector:
     human_color = chess.WHITE
     computer_colors = (chess.WHITE, chess.BLACK)
     reset_timeout = 240
-    move_timeout = 180
 
     def __init__(self, client: RuntimeClient) -> None:
         self.client = client

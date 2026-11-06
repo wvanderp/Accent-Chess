@@ -142,6 +142,12 @@ To ensure we can accommodate this, we need to implement a more narrow version of
 
 ## Tournament
 
+Native difficulty presets are separate ranking engines by default. See
+[difficulty findings and setting scripts](docs/difficulty/README.md) for each
+program's verified presets. Vintage engines can finish their full native search;
+there is no external thinking deadline by default. Stockfish remains the single
+maximum-skill measuring stick.
+
 Run six different pairings unattended, including runtime startup and shutdown:
 
 ```powershell

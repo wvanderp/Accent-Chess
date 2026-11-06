@@ -27,7 +27,6 @@ def prompt_mask(frame: Image.Image) -> np.ndarray:
 class Connector:
     human_color = chess.WHITE
     requires_board_before_reset = True
-    move_timeout = 180
 
     def __init__(self, client: RuntimeClient) -> None:
         self.client = client

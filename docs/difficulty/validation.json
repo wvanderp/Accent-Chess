@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-06",
+  "scope": "Four exact media releases registered in games.catalog",
+  "profiles_verified_live_by_selection_and_readback": {
+    "grandmaster": 5,
+    "chess19xx": 9,
+    "chessmaster2000": 38,
+    "battlechess": 10
+  },
+  "total_vintage_profiles": 62,
+  "regression_tests": {
+    "command": "python -m pytest tests -q --basetemp debug-frames/pytest-difficulty-complete",
+    "passed": 145,
+    "failed": 0
+  },
+  "integration": {
+    "record": "integration/grandmaster-strengths/validation.json",
+    "description": "Independent Beginner White and Grandmaster Black runtimes reset, verified difficulty, changed sides, played Nf3 d5, and retained identical histories"
+  },
+  "limitations": [
+    "Selection/readback is verified for every preset; complete games and measured strength at every preset are not claimed",
+    "Battle Chess automatic reset/play remains unsupported",
+    "Chess 19xx computer-as-White control remains unsupported",
+    "Historical results with unrecorded difficulty remain separate retired identities"
+  ]
+}

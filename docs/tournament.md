@@ -1,5 +1,13 @@
 # Tournament architecture and investigation
 
+## Native difficulty update
+
+The default schedule now uses separate verified native difficulty profiles.
+See [difficulty investigation and commands](difficulty/README.md). The historical
+acceptance results below predate recorded difficulty profiles and retain their
+original engine names; they are not evidence of results at every new level.
+Vintage move waits no longer have the former external search deadlines.
+
 ## Verified six-match invocation
 
 On 2026-11-05 this single command completed six distinct ordered pairings in

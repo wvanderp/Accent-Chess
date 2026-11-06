@@ -42,13 +42,49 @@ def test_history_survives_restart(tmp_path: Path) -> None:
 
 def test_capabilities_preserve_unsupported_pairings(tmp_path: Path) -> None:
     ledger = Ledger(tmp_path)
-    engines = ledger.state['engines']
+    engines = {game: {'kind': 'vintage', 'game': game}
+               for game in ('grandmaster', 'chess19xx', 'chessmaster2000', 'battlechess')}
     engines['uci'] = {'kind': 'uci', 'command': 'unused'}
     assert runnable('grandmaster', 'chess19xx', engines)
     assert runnable('uci', 'chessmaster2000', engines)
     assert runnable('grandmaster', 'uci', engines)
     assert not runnable('chess19xx', 'grandmaster', engines)
     assert not runnable('uci', 'battlechess', engines)
+
+
+def test_default_difficulties_have_separate_ranking_identities(tmp_path: Path) -> None:
+    from emulation.difficulty import default_engines
+    ledger = Ledger(tmp_path)
+    assert ledger.state['engines'] == default_engines()
+    for name, definition in ledger.state['engines'].items():
+        assert name == (f"{definition['game']}:{definition['difficulty']}"
+                        if 'difficulty' in definition else definition['game'])
+    assert len(ledger.ranking(ledger.state['engines'])) == len(default_engines())
+
+
+def test_unknown_historical_difficulty_is_preserved_but_retired(tmp_path: Path) -> None:
+    state = {'version': 1, 'engines': {
+        'grandmaster': {'kind': 'vintage', 'game': 'grandmaster', 'url': 'old'},
+        'stockfish': {'kind': 'uci', 'command': 'old'}},
+        'pairings': [{'white': 'grandmaster', 'black': 'stockfish', 'attempts': [
+            {'status': 'completed', 'result': '1-0'}]}]}
+    (tmp_path / 'state.json').write_text(json.dumps(state), encoding='utf-8')
+    ledger = Ledger(tmp_path)
+    assert ledger.state['pairings'][0] == state['pairings'][0]
+    assert ledger.state['engines']['grandmaster']['retired']
+    assert all('grandmaster' not in pair for pair in ledger.pending(ledger.state['engines']))
+    assert not runnable('grandmaster', 'stockfish', ledger.state['engines'])
+    rows = {row['engine']: row for row in ledger.ranking(ledger.state['engines'])}
+    assert rows['grandmaster']['points'] == 1
+    assert all(row['played'] == 0 for name, row in rows.items() if ':' in name)
+
+
+def test_existing_profile_cannot_silently_change_its_ranking_identity(tmp_path: Path) -> None:
+    ledger = Ledger(tmp_path)
+    ledger.state['engines']['grandmaster:beginner']['difficulty'] = 'expert'
+    ledger.save()
+    with pytest.raises(ValueError, match='identity conflicts'):
+        Ledger(tmp_path)
 
 
 def test_interrupted_attempt_stays_pending(tmp_path: Path) -> None:
@@ -150,3 +186,44 @@ def test_explicit_resignation_is_a_result_without_inventing_checkmate(tmp_path: 
     assert attempt['result'] == '1-0'
     assert attempt['termination'] == 'resignation'
     assert not chess.Board(attempt['final_fen']).is_game_over()
+
+
+def test_same_program_difficulties_use_independent_runtimes_and_record_profiles(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from contextlib import contextmanager
+    from typing import Iterator
+    from unittest.mock import Mock
+
+    ledger = Ledger(tmp_path)
+    names = ('grandmaster:beginner', 'grandmaster:grandmaster')
+    definitions = {name: ledger.state['engines'][name] for name in names}
+    launched: list[Path] = []
+    configured: list[str | None] = []
+
+    @contextmanager
+    def runtime(game: str, directory: Path, timeout: float) -> Iterator[Mock]:
+        launched.append(directory)
+        client = Mock()
+        client.snapshot.return_value = {'png': ''}
+        yield client
+
+    class Vintage(ScriptedUci):
+        def __init__(self, game: str, client: Mock, color: chess.Color, timeout: float,
+                     *, difficulty: str | None, thinking_timeout: float | None) -> None:
+            configured.append(difficulty)
+            assert thinking_timeout is None
+
+        def finish(self, board: chess.Board) -> None:
+            assert board.is_checkmate()
+
+    monkeypatch.setattr(tournament, 'runtime', runtime)
+    monkeypatch.setattr(tournament, 'VintageParticipant', Vintage)
+    assert run_match(ledger, *names, definitions, 90, .3, 10)
+    assert configured == ['beginner', 'grandmaster']
+    assert len(launched) == 2 and launched[0] != launched[1]
+    assert {directory.name for directory in launched} == {'white', 'black'}
+    pairing = next(pair for pair in ledger.state['pairings']
+                   if (pair['white'], pair['black']) == names)
+    attempt = pairing['attempts'][0]
+    assert attempt['engines'] == definitions
+    assert (tmp_path / attempt['id'] / 'grandmaster--beginner-final.png').exists()

@@ -1,0 +1,18 @@
+{
+  "white": "grandmaster:beginner",
+  "black": "grandmaster:grandmaster",
+  "moves": [
+    {
+      "uci": "g1f3",
+      "san": "Nf3"
+    },
+    {
+      "uci": "d7d5",
+      "san": "d5"
+    }
+  ],
+  "status": "passed",
+  "fen": "rnbqkbnr/ppp1pppp/8/3p4/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 2",
+  "both_histories_equal": true,
+  "elapsed_seconds": 40.17
+}

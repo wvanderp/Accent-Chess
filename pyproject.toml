@@ -16,6 +16,6 @@ exclude = ["games.*.tests*"]
 
 [tool.setuptools.package-data]
 "games.Grandmaster_Chess" = ["recognition*.png", "game-menu.png", "new-game-confirm.png", "resignation.png", "mate-announcement.png", "game-completed.png", "rating-calculation.png"]
-"games.Chess_19xx" = ["recognition*.png"]
+"games.Chess_19xx" = ["recognition*.png", "difficulty-*.png"]
 "games.Chessmaster_2000" = ["*.png"]
 "games.Battle_Chess" = ["*.png"]
