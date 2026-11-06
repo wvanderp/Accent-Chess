@@ -68,8 +68,13 @@ def successors(board: chess.Board, placement: str) -> list[chess.Board]:
 class PlaySession:
     """Owned by a single polling worker; UI submits commands through its queue."""
 
-    def __init__(self, connector: PlayConnector) -> None:
+    def __init__(self, connector: PlayConnector, *, move_timeout: float | None = None) -> None:
         self.connector = connector
+        # Native difficulty owns search duration. None permits a full search;
+        # reset deadlines remain bounded because they do not measure thinking.
+        if move_timeout is not None and move_timeout <= 0:
+            raise ValueError("Move timeout must be positive or None")
+        self.move_timeout = move_timeout
         self.board: chess.Board | None = None
         self.pending: chess.Board | None = None
         self.resetting = False
@@ -113,7 +118,7 @@ class PlaySession:
         self.position_confirmed = False
         self.pending = self.board.copy()
         self.pending.push(move)
-        self.deadline = monotonic() + getattr(self.connector, "move_timeout", 20)
+        self.deadline = monotonic() + self.move_timeout if self.move_timeout is not None else 0.0
         self.message = f"Sent {uci}; waiting for emulator acknowledgement"
         try:
             # Optional position context lets a connector distinguish a terminal
@@ -190,13 +195,12 @@ class PlaySession:
             else:
                 return
             self.pending = None
-            self.deadline = monotonic() + 180 if self.board.turn != self.connector.human_color else 0.0
+            if self.board.turn == self.connector.human_color:
+                self.deadline = 0.0
         elif placement != self.board.board_fen():
             matches = successors(self.board, placement)
             if self.board.turn == self.connector.human_color or len(matches) != 1:
                 self.message = "Board differs from tracked game; waiting for a legal position"
-                if not self.deadline:
-                    self.deadline = monotonic() + 20
                 return
             self.board = matches[0]
             self.deadline = 0.0

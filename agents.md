@@ -9,3 +9,7 @@ When implementing new Engine connectors, dont use sleep statements to wait for t
 Document the code with the findings during investigations. This will help future developers understand the reasoning behind certain decisions and make it easier to maintain the codebase.
 
 Please remember that image recognition is not the only way to Rome. You may also read the memory of the game or use other ways of determining the state of the game.
+
+Stockfish is a special case: it is the measuring stick for the vintage programs, not a collection of difficulty entrants. Keep its Skill Level at the maximum and UCI_LimitStrength disabled. Do not create weakened Stockfish ranking entries.
+
+Each verified native difficulty of a vintage program is a separate tournament engine with a stable identity. Record the exact setting and verify it in the program before playing; never mix results from different difficulties. Do not impose an external thinking deadline on vintage engines by default. Startup and menu/input failures may still have bounded diagnostic waits; engine completion must be observed rather than inferred from elapsed time.

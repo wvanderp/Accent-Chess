@@ -27,6 +27,17 @@ class Participant(Protocol):
 class UciParticipant:
     def __init__(self, command: str, timeout: float, move_time: float) -> None:
         self.engine = chess.engine.SimpleEngine.popen_uci(command, timeout=timeout)
+        # Stockfish is the full-strength reference, never a weakened entrant.
+        options: dict[str, object] = {}
+        if 'Skill Level' in self.engine.options:
+            options['Skill Level'] = self.engine.options['Skill Level'].max
+        if 'UCI_LimitStrength' in self.engine.options:
+            options['UCI_LimitStrength'] = False
+        try:
+            self.engine.configure(options)
+        except BaseException:
+            self.engine.close()
+            raise
         self.move_time = move_time
 
     def choose(self, board: chess.Board) -> chess.Move:
@@ -40,14 +51,16 @@ class UciParticipant:
 
 
 class VintageParticipant:
-    def __init__(self, game: str, client: RuntimeClient, color: chess.Color, timeout: float) -> None:
+    def __init__(self, game: str, client: RuntimeClient, color: chess.Color, timeout: float,
+                 *, difficulty: str | None = None, thinking_timeout: float | None = None) -> None:
         if not supports_color(game, color):
             raise ValueError(f'{game} has no verified computer-as-white control')
         self.client = client
         self.game = game
         self.timeout = timeout
+        self.thinking_timeout = thinking_timeout
         self.reader = create_reader(game)
-        self.session = PlaySession(create_connector(game, client))
+        self.session = PlaySession(create_connector(game, client), move_timeout=thinking_timeout)
         self.flipped = False
         self.previous: str | None = None
         self.last_png = b''
@@ -74,6 +87,11 @@ class VintageParticipant:
             self.observe()
             if monotonic() >= end:
                 raise TimeoutError(f'{game}: reset: {self.session.message}; {self.last_error}')
+        if difficulty is not None:
+            from .difficulty import set_difficulty
+            set_difficulty(game, difficulty, client, timeout=timeout)
+            # Menu frames are not observations of the board.
+            self.previous = None
         if play_as := getattr(self.session.connector, 'play_as', None):
             play_as(color)
             self.flipped = getattr(self.session.connector, 'flipped', False)
@@ -133,9 +151,9 @@ class VintageParticipant:
             raise ValueError('Vintage history diverged from tournament')
 
     def choose(self, board: chess.Board) -> chess.Move:
-        end = monotonic() + self.timeout
-        self.submit_opponent(board, end)
-        while monotonic() < end:
+        self.submit_opponent(board, monotonic() + self.timeout)
+        end = monotonic() + self.thinking_timeout if self.thinking_timeout is not None else None
+        while end is None or monotonic() < end:
             self.observe()
             current = self.session.board
             assert current is not None
